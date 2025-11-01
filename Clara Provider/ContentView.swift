@@ -39,7 +39,7 @@ struct ContentView: View {
     }
     
     var body: some View {
-        ZStack(alignment: .leading) {
+        ZStack {
             // Main background
             Color.adaptiveBackground(for: colorScheme)
                 .ignoresSafeArea()
@@ -70,7 +70,7 @@ struct ContentView: View {
             .overlay(
                 Group {
                     if isMenuOpen {
-                        Color.black.opacity(0.25)
+                        Color.black.opacity(0.4)
                             .ignoresSafeArea()
                             .onTapGesture { withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { isMenuOpen = false } }
                     }
@@ -80,28 +80,26 @@ struct ContentView: View {
                 await loadPatients()
             }
 
-            // Simple slide-in side menu with rounded trailing edge
-            SideMenuView(
-                close: {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { isMenuOpen = false }
-                },
-                patients: patients,
-                onSelectPatient: { patient in
-                    path.append(patient)
-                }
-            )
-            .frame(maxWidth: 280)
-            .offset(x: isMenuOpen ? 0 : -320)
-            .transition(.move(edge: .leading))
-            .shadow(color: Color.black.opacity(0.15), radius: 8, x: 4, y: 0)
-            .clipShape(
-                .rect(
-                    topLeadingRadius: 0,
-                    bottomLeadingRadius: 0,
-                    bottomTrailingRadius: 16,
-                    topTrailingRadius: 16
+            // Floating undocked menu - iOS 26 style
+            if isMenuOpen {
+                SideMenuView(
+                    close: {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { isMenuOpen = false }
+                    },
+                    patients: patients,
+                    onSelectPatient: { patient in
+                        path.append(patient)
+                    }
                 )
-            )
+                .frame(maxWidth: 320)
+                .padding(.leading, 16)
+                .padding(.top, 60)
+                .padding(.bottom, 20)
+                .transition(.asymmetric(
+                    insertion: .move(edge: .leading).combined(with: .opacity),
+                    removal: .move(edge: .leading).combined(with: .opacity)
+                ))
+            }
         }
     }
     
@@ -160,122 +158,112 @@ private struct SideMenuView: View {
     @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            // Background panel - match app aesthetic
-            Rectangle()
-                .fill(Color.adaptiveBackground(for: colorScheme))
-                .ignoresSafeArea()
-
-            // Menu content
-            VStack(alignment: .leading, spacing: 0) {
-                // Header
-                HStack(spacing: 12) {
-                    Image(systemName: "person.2.fill")
-                        .imageScale(.large)
-                        .foregroundColor(.primaryCoral)
-                        .shadow(color: .clear, radius: 0)
-                    Text("Patients")
-                        .font(.rethinkSansBold(17, relativeTo: .headline))
-                        .foregroundColor(Color.adaptiveLabel(for: colorScheme))
-                        .shadow(color: .clear, radius: 0)
-                    Spacer()
-                    Button(action: close) {
-                        Image(systemName: "xmark.circle.fill")
-                            .imageScale(.medium)
-                            .foregroundColor(.secondary)
-                            .shadow(color: .clear, radius: 0)
-                    }
-                    .accessibilityLabel("Close menu")
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 20)
-                .padding(.bottom, 12)
-
-                // Search field
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass")
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack(spacing: 12) {
+                Image(systemName: "person.2.fill")
+                    .imageScale(.large)
+                    .foregroundColor(.primaryCoral)
+                Text("Patients")
+                    .font(.rethinkSansBold(17, relativeTo: .headline))
+                    .foregroundColor(Color.adaptiveLabel(for: colorScheme))
+                Spacer()
+                Button(action: close) {
+                    Image(systemName: "xmark.circle.fill")
+                        .imageScale(.medium)
                         .foregroundColor(.secondary)
-                    TextField("Search patients", text: $searchText)
-                        .font(.rethinkSans(17, relativeTo: .body))
-                        .textInputAutocapitalization(.words)
-                        .autocorrectionDisabled(true)
-                    if !searchText.isEmpty {
-                        Button {
-                            searchText = ""
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(Color(.tertiaryLabel))
-                        }
-                        .accessibilityLabel("Clear search")
-                    }
                 }
-                .padding(12)
-                .background(Color.white)
-                .cornerRadius(10)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 12)
+                .accessibilityLabel("Close menu")
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 20)
+            .padding(.bottom, 16)
 
-                Divider()
-                    .padding(.bottom, 0)
-
-                // Patients list
-                if patients.isEmpty {
-                    VStack(spacing: 12) {
-                        Image(systemName: "person.2.slash")
-                            .font(.system(size: 48))
-                            .foregroundColor(.secondary)
-                        Text("No Patients")
-                            .font(.rethinkSansBold(17, relativeTo: .headline))
-                        Text("No patients found")
-                            .font(.rethinkSans(15, relativeTo: .subheadline))
-                            .foregroundColor(.secondary)
+            // Search field
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.secondary)
+                TextField("Search patients", text: $searchText)
+                    .font(.rethinkSans(17, relativeTo: .body))
+                    .textInputAutocapitalization(.words)
+                    .autocorrectionDisabled(true)
+                if !searchText.isEmpty {
+                    Button {
+                        searchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(Color(.tertiaryLabel))
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding()
-                } else {
-                    ScrollView {
-                        LazyVStack(spacing: 0) {
-                            ForEach(filteredPatients, id: \.self) { item in
-                                Button {
-                                    onSelectPatient(item)
-                                    close()
-                                } label: {
-                                    HStack(spacing: 12) {
-                                        Image(systemName: "person.circle.fill")
-                                            .font(.title3)
-                                            .foregroundColor(.primaryCoral)
-                                            .shadow(color: .clear, radius: 0)
-                                        
-                                        Text(item.name)
-                                            .font(.rethinkSansBold(15, relativeTo: .subheadline))
-                                            .foregroundColor(Color.adaptiveLabel(for: colorScheme))
-                                            .shadow(color: .clear, radius: 0)
-                                        Spacer()
-                                        
-                                        Image(systemName: "chevron.right")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                            .shadow(color: .clear, radius: 0)
-                                    }
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 14)
-                                    .background(Color.clear)
+                    .accessibilityLabel("Clear search")
+                }
+            }
+            .padding(12)
+            .background(Color.white)
+            .cornerRadius(10)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 16)
+
+            Divider()
+                .padding(.bottom, 0)
+
+            // Patients list
+            if patients.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "person.2.slash")
+                        .font(.system(size: 48))
+                        .foregroundColor(.secondary)
+                    Text("No Patients")
+                        .font(.rethinkSansBold(17, relativeTo: .headline))
+                    Text("No patients found")
+                        .font(.rethinkSans(15, relativeTo: .subheadline))
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding()
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(filteredPatients, id: \.self) { item in
+                            Button {
+                                onSelectPatient(item)
+                                close()
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "person.circle.fill")
+                                        .font(.title3)
+                                        .foregroundColor(.primaryCoral)
+                                    
+                                    Text(item.name)
+                                        .font(.rethinkSansBold(15, relativeTo: .subheadline))
+                                        .foregroundColor(Color.adaptiveLabel(for: colorScheme))
+                                    Spacer()
+                                    
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
                                 }
-                                .buttonStyle(PlainButtonStyle())
-                                
-                                if item.id != filteredPatients.last?.id {
-                                    Divider()
-                                        .padding(.leading, 52)
-                                }
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 14)
+                                .background(Color.clear)
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            
+                            if item.id != filteredPatients.last?.id {
+                                Divider()
+                                    .padding(.leading, 56)
                             }
                         }
                     }
-                    .scrollContentBackground(.hidden)
-                    .background(Color.clear)
                 }
+                .scrollContentBackground(.hidden)
+                .background(Color.clear)
             }
         }
-        .frame(width: 280)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Color.adaptiveBackground(for: colorScheme))
+        .clipShape(RoundedRectangle(cornerRadius: 24))
+        .shadow(color: Color.black.opacity(0.2), radius: 20, x: 0, y: 8)
+        .shadow(color: Color.black.opacity(0.1), radius: 40, x: 0, y: 16)
     }
     
     private var filteredPatients: [PatientListItem] {

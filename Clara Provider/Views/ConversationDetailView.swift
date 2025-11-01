@@ -641,7 +641,7 @@ struct ReviewResultView: View {
         case "responded":
             return Color.green.opacity(0.1)
         case "flagged":
-            return Color.orange.opacity(0.1)
+            return Color.orange.opacity(0.2)
         case "escalated":
             return Color.red.opacity(0.1)
         default:
