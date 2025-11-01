@@ -44,6 +44,7 @@ struct ConversationDetailView: View {
                             .padding()
                     } else if messages.isEmpty {
                         Text("No messages yet")
+                            .font(.rethinkSans(15, relativeTo: .subheadline))
                             .foregroundColor(.secondary)
                             .frame(maxWidth: .infinity)
                             .padding()
@@ -79,8 +80,11 @@ struct ConversationDetailView: View {
             .scrollContentBackground(.hidden)
             .background(Color.adaptiveBackground(for: colorScheme))
             
-            // Provider Reply Box
-            if let detail = conversationDetail, detail.status != "responded" {
+            // Provider Reply Box - only show if status is "pending"
+            // Once any response is submitted (responded, flagged, or escalated), hide the reply box
+            if let detail = conversationDetail, 
+               let status = detail.status,
+               status.lowercased() == "pending" {
                 ProviderReplyBox(
                     replyText: $replyText,
                     selectedResponse: $selectedResponse,
@@ -240,7 +244,10 @@ struct ConversationDetailView: View {
                     try await store.updateReviewStatus(id: detail.id, status: status)
                 }
                 
-                // Refresh data
+                // Immediately refresh conversation details to get updated status
+                await store.loadConversationDetails(id: conversationId)
+                
+                // Refresh review requests list
                 await store.loadReviewRequests()
                 
                 // Refresh the review display
@@ -294,7 +301,7 @@ struct ProviderReplyBox: View {
             // Response Type Dropdown
             VStack(alignment: .leading, spacing: 8) {
                 Text("Response")
-                    .font(.caption)
+                    .font(.rethinkSans(12, relativeTo: .caption))
                     .foregroundColor(.secondary)
                 
                 Picker("Response Type", selection: $selectedResponse) {
@@ -310,11 +317,12 @@ struct ProviderReplyBox: View {
             // Reply Text Box
             VStack(alignment: .leading, spacing: 8) {
                 Text("Reply (Optional)")
-                    .font(.caption)
+                    .font(.rethinkSans(12, relativeTo: .caption))
                     .foregroundColor(.secondary)
                 
                 TextField("Enter your reply...", text: $replyText, axis: .vertical)
                     .textFieldStyle(.plain)
+                    .font(.system(.body, design: .monospaced))
                     .padding(12)
                     .frame(minHeight: 60, maxHeight: 120, alignment: .topLeading)
                     .background(Color.white)
@@ -336,7 +344,7 @@ struct ProviderReplyBox: View {
                             .progressViewStyle(CircularProgressViewStyle(tint: .white))
                     }
                     Text(isSubmitting ? "Submitting..." : "Submit Review")
-                        .fontWeight(.semibold)
+                        .font(.rethinkSansBold(17, relativeTo: .body))
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
@@ -367,16 +375,16 @@ struct PatientInfoCard: View {
                 VStack(alignment: .leading, spacing: 4) {
                     if let childName = detail.childName {
                         Text(childName)
-                            .font(.headline)
+                            .font(.rethinkSansBold(17, relativeTo: .headline))
                         
                         if let age = detail.childAge {
                             Text("Age: \(age)")
-                                .font(.subheadline)
+                                .font(.system(.subheadline, design: .monospaced))
                                 .foregroundColor(.secondary)
                         }
                     } else {
                         Text("Patient")
-                            .font(.headline)
+                            .font(.rethinkSansBold(17, relativeTo: .headline))
                     }
                 }
                 
@@ -390,11 +398,11 @@ struct PatientInfoCard: View {
             if let summary = detail.conversationSummary, !summary.isEmpty {
                 Divider()
                 Text("Summary")
-                    .font(.caption)
+                    .font(.rethinkSans(12, relativeTo: .caption))
                     .foregroundColor(.secondary)
                     .textCase(.uppercase)
                 Text(summary)
-                    .font(.subheadline)
+                    .font(.system(.subheadline, design: .monospaced))
             }
         }
         .padding()
@@ -405,6 +413,7 @@ struct PatientInfoCard: View {
 
 struct MessageBubbleView: View {
     let message: Message
+    @Environment(\.colorScheme) var colorScheme
     
     var isFromPatient: Bool {
         message.isFromUser && message.providerName == nil
@@ -418,63 +427,196 @@ struct MessageBubbleView: View {
         message.providerName == "Provider" || (message.providerName != nil && message.providerName != "Clara")
     }
     
-    var bubbleColor: Color {
-        if isFromPatient {
-            return Color.userBubbleBackground
-        } else if isFromClara {
-            return Color.blue.opacity(0.2)
-        } else {
-            return Color.primaryCoral.opacity(0.2)
-        }
-    }
-    
-    var senderLabel: String {
-        if isFromPatient {
-            return "Patient"
-        } else if isFromClara {
-            return "Clara AI"
-        } else {
-            return "You"
-        }
-    }
-    
     var body: some View {
-        HStack {
-            if !isFromPatient {
-                Spacer()
-            }
-            
-            VStack(alignment: isFromPatient ? .leading : .trailing, spacing: 4) {
-                Text(senderLabel)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                Text(message.content)
-                    .padding(12)
-                    .background(bubbleColor)
-                    .cornerRadius(16)
-                
-                if let triageOutcome = message.triageOutcome {
-                    TriageBadge(outcome: triageOutcome)
-                }
-                
-                Text(formatTime(message.timestamp))
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-            }
-            .frame(maxWidth: .infinity, alignment: isFromPatient ? .leading : .trailing)
-            .padding(.horizontal)
-            
+        VStack(alignment: isFromPatient ? .trailing : .leading, spacing: 4) {
             if isFromPatient {
-                Spacer()
+                // Patient message - beige bubble on the right
+                HStack(alignment: .top, spacing: 8) {
+                    Text(message.content)
+                        .font(.rethinkSans(17, relativeTo: .body))
+                        .foregroundColor(Color.adaptiveLabel(for: colorScheme))
+                        .textSelection(.enabled)
+                    
+                    // User initial circle
+                    ZStack {
+                        Circle()
+                            .fill(Color.adaptiveTertiaryBackground(for: colorScheme))
+                            .frame(width: 28, height: 28)
+                        Text("P")
+                            .font(.rethinkSansBold(12, relativeTo: .caption2))
+                            .foregroundColor(Color.adaptiveSecondaryLabel(for: colorScheme))
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(colorScheme == .dark ? Color(.secondarySystemBackground) : Color.userBubbleBackground)
+                )
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            } else if isFromClara {
+                // Clara message - plain text on beige background, left aligned
+                ClaraMarkdownView(text: message.content)
+                    .foregroundColor(Color.adaptiveLabel(for: colorScheme))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                // Provider message - coral bubble on the right
+                Text(message.content)
+                    .font(.rethinkSans(17, relativeTo: .body))
+                    .padding(12)
+                    .background(Color.primaryCoral.opacity(0.2))
+                    .cornerRadius(16)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
+            
+            if let triageOutcome = message.triageOutcome {
+                if isFromClara {
+                    TriageBadge(outcome: triageOutcome)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    TriageBadge(outcome: triageOutcome)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+            }
+            
+            Text(formatTime(message.timestamp))
+                .font(.system(.caption2, design: .monospaced))
+                .foregroundColor(.secondary)
+                .frame(maxWidth: .infinity, alignment: isFromPatient ? .trailing : .leading)
         }
+        .padding(.horizontal)
     }
     
     private func formatTime(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
         return formatter.string(from: date)
+    }
+}
+
+// MARK: - Clara Markdown View
+struct ClaraMarkdownView: View {
+    let text: String
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(parseBlocks(text)) { item in
+                switch item.block {
+                case .paragraph(let s):
+                    Text(s)
+                        .font(.rethinkSans(17, relativeTo: .body))
+                        .fixedSize(horizontal: false, vertical: true)
+                case .bullets(let items):
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(Array(items.enumerated()), id: \.offset) { _, line in
+                            HStack(alignment: .top, spacing: 10) {
+                                Circle()
+                                    .fill(Color.primaryCoral)
+                                    .frame(width: 6, height: 6)
+                                    .padding(.top, 6)
+                                Text(line)
+                                    .font(.rethinkSans(17, relativeTo: .body))
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                case .numbers(let items):
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(Array(items.enumerated()), id: \.offset) { index, line in
+                            HStack(alignment: .top, spacing: 10) {
+                                Text("\(index + 1).")
+                                    .foregroundColor(Color.primaryCoral)
+                                    .font(.rethinkSansBold(17, relativeTo: .body))
+                                Text(line)
+                                    .font(.rethinkSans(17, relativeTo: .body))
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                case .heading(_, let s):
+                    Text(s)
+                        .font(.rethinkSansBold(17, relativeTo: .headline))
+                }
+            }
+        }
+    }
+    
+    private enum BlockType {
+        case paragraph(String)
+        case bullets([String])
+        case numbers([String])
+        case heading(Int, String)
+    }
+    
+    private struct ParsedBlock: Identifiable {
+        let id = UUID()
+        let block: BlockType
+    }
+    
+    private func parseBlocks(_ text: String) -> [ParsedBlock] {
+        var blocks: [ParsedBlock] = []
+        var currentBullets: [String] = []
+        var currentNumbers: [String] = []
+        
+        func flushLists() {
+            if !currentBullets.isEmpty {
+                blocks.append(ParsedBlock(block: .bullets(currentBullets)))
+                currentBullets.removeAll()
+            }
+            if !currentNumbers.isEmpty {
+                blocks.append(ParsedBlock(block: .numbers(currentNumbers)))
+                currentNumbers.removeAll()
+            }
+        }
+        
+        for rawLine in text.split(separator: "\n", omittingEmptySubsequences: false) {
+            let line = String(rawLine)
+            if line.trimmingCharacters(in: .whitespaces).isEmpty {
+                flushLists()
+                continue
+            }
+            
+            // Handle headings
+            if line.hasPrefix("### ") {
+                flushLists()
+                blocks.append(ParsedBlock(block: .heading(3, String(line.dropFirst(4)))))
+                continue
+            }
+            if line.hasPrefix("## ") {
+                flushLists()
+                blocks.append(ParsedBlock(block: .heading(2, String(line.dropFirst(3)))))
+                continue
+            }
+            if line.hasPrefix("# ") {
+                flushLists()
+                blocks.append(ParsedBlock(block: .heading(1, String(line.dropFirst(2)))))
+                continue
+            }
+            
+            // Handle bullet points
+            let trimmedLine = line.trimmingCharacters(in: .whitespaces)
+            if (trimmedLine.hasPrefix("- ") || trimmedLine.hasPrefix("* ")) && !trimmedLine.hasSuffix(":") {
+                let content = String(trimmedLine.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+                currentBullets.append(content)
+                continue
+            }
+            
+            // Handle numbered lists
+            if let dotIdx = line.firstIndex(of: "."),
+               let n = Int(line[..<dotIdx].trimmingCharacters(in: .whitespaces)),
+               n > 0 {
+                currentNumbers.append(String(line[line.index(after: dotIdx)...].trimmingCharacters(in: .whitespaces)))
+                continue
+            }
+            
+            flushLists()
+            blocks.append(ParsedBlock(block: .paragraph(line)))
+        }
+        
+        // Flush at end
+        flushLists()
+        return blocks
     }
 }
 
@@ -494,6 +636,19 @@ struct ReviewResultView: View {
         }
     }
     
+    var backgroundColor: Color {
+        switch review.status?.lowercased() {
+        case "responded":
+            return Color.green.opacity(0.1)
+        case "flagged":
+            return Color.orange.opacity(0.1)
+        case "escalated":
+            return Color.red.opacity(0.1)
+        default:
+            return Color.primaryCoral.opacity(0.1)
+        }
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -508,13 +663,12 @@ struct ReviewResultView: View {
                     
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Provider Review")
-                            .font(.caption)
+                            .font(.rethinkSans(12, relativeTo: .caption))
                             .foregroundColor(.secondary)
                             .textCase(.uppercase)
                         
                         Text(review.status?.capitalized ?? "Pending")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
+                            .font(.rethinkSansBold(15, relativeTo: .subheadline))
                             .foregroundColor(statusColor)
                     }
                     
@@ -523,7 +677,7 @@ struct ReviewResultView: View {
                     if let respondedAt = review.respondedAt,
                        let date = ISO8601DateFormatter().date(from: respondedAt) {
                         Text(formatTime(date))
-                            .font(.caption2)
+                            .font(.system(.caption2, design: .monospaced))
                             .foregroundColor(.secondary)
                     }
                 }
@@ -531,12 +685,12 @@ struct ReviewResultView: View {
                 if let response = review.providerResponse, !response.isEmpty {
                     Divider()
                     Text(response)
-                        .font(.subheadline)
+                        .font(.system(.subheadline, design: .monospaced))
                         .foregroundColor(.primary)
                 }
             }
             .padding(12)
-            .background(Color.primaryCoral.opacity(0.1))
+            .background(backgroundColor)
             .cornerRadius(16)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)

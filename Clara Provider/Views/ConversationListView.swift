@@ -166,11 +166,9 @@ struct StatusFilterButton: View {
         Button(action: action) {
             VStack(spacing: 4) {
                 Text(title)
-                    .font(.subheadline)
-                    .fontWeight(isSelected ? .semibold : .regular)
+                    .font(isSelected ? .rethinkSansBold(15, relativeTo: .subheadline) : .rethinkSans(15, relativeTo: .subheadline))
                 Text("\(count)")
-                    .font(.caption)
-                    .fontWeight(.medium)
+                    .font(.rethinkSans(12, relativeTo: .caption))
             }
             .foregroundColor(isSelected ? .white : Color.adaptiveLabel(for: colorScheme))
             .padding(.horizontal, 16)
@@ -188,7 +186,7 @@ struct ConversationRowView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(request.conversationTitle ?? (request.childName ?? "Conversation"))
-                    .font(.headline)
+                    .font(.rethinkSansBold(17, relativeTo: .headline))
                     .lineLimit(1)
                 
                 Spacer()
@@ -199,14 +197,13 @@ struct ConversationRowView: View {
             if let childName = request.childName {
                 HStack(spacing: 4) {
                     Image(systemName: "person.fill")
-                        .font(.caption)
                     Text(childName)
-                        .font(.subheadline)
+                        .font(.rethinkSans(15, relativeTo: .subheadline))
                         .foregroundColor(.secondary)
                     
                     if let age = request.childAge {
                         Text("• \(age)")
-                            .font(.subheadline)
+                            .font(.rethinkSans(15, relativeTo: .subheadline))
                             .foregroundColor(.secondary)
                     }
                 }
@@ -214,9 +211,8 @@ struct ConversationRowView: View {
                 // Show user ID if child name is not available
                 HStack(spacing: 4) {
                     Image(systemName: "person.fill")
-                        .font(.caption)
                     Text("User: \(request.userId)")
-                        .font(.subheadline)
+                        .font(.rethinkSans(15, relativeTo: .subheadline))
                         .foregroundColor(.secondary)
                 }
             }
@@ -225,7 +221,7 @@ struct ConversationRowView: View {
             if request.conversationTitle == nil || request.conversationTitle?.isEmpty == true {
                 if let firstMessage = request.conversationMessages?.first {
                     Text(firstMessage.content.prefix(50) + (firstMessage.content.count > 50 ? "..." : ""))
-                        .font(.caption)
+                        .font(.rethinkSans(12, relativeTo: .caption))
                         .foregroundColor(.secondary)
                         .lineLimit(1)
                 }
@@ -237,7 +233,7 @@ struct ConversationRowView: View {
             
             if let createdAt = request.createdAt {
                 Text(formatDate(createdAt))
-                    .font(.caption)
+                    .font(.system(.caption, design: .monospaced))
                     .foregroundColor(.secondary)
             }
         }
@@ -275,8 +271,7 @@ struct StatusBadge: View {
     
     var body: some View {
         Text(status.capitalized)
-            .font(.caption)
-            .fontWeight(.semibold)
+            .font(.rethinkSansBold(12, relativeTo: .caption))
             .foregroundColor(.white)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
@@ -322,8 +317,7 @@ struct TriageBadge: View {
     
     var body: some View {
         Text(displayText)
-            .font(.caption)
-            .fontWeight(.medium)
+            .font(.rethinkSans(12, relativeTo: .caption))
             .foregroundColor(color)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
@@ -342,10 +336,9 @@ struct EmptyStateView: View {
                 .font(.system(size: 48))
                 .foregroundColor(.secondary)
             Text(title)
-                .font(.title2)
-                .fontWeight(.semibold)
+                .font(.rethinkSansBold(22, relativeTo: .title2))
             Text(message)
-                .font(.subheadline)
+                .font(.rethinkSans(15, relativeTo: .subheadline))
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
         }

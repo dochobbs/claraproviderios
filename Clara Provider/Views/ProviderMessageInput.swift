@@ -16,6 +16,7 @@ struct ProviderMessageInputView: View {
             Form {
                 Section("Message") {
                     TextEditor(text: $messageText)
+                        .font(.rethinkSans(17, relativeTo: .body))
                         .frame(minHeight: 100)
                 }
                 .listRowBackground(Color.adaptiveSecondaryBackground(for: colorScheme))
@@ -37,6 +38,7 @@ struct ProviderMessageInputView: View {
                                 ProgressView()
                             }
                             Text(isSending ? "Sending..." : "Send Message")
+                                .font(.rethinkSansBold(17, relativeTo: .body))
                         }
                         .frame(maxWidth: .infinity)
                     }

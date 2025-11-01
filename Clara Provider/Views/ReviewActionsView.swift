@@ -133,12 +133,12 @@ struct ActionButton: View {
     var body: some View {
         Button(action: action) {
             VStack(spacing: 4) {
-                Image(systemName: icon)
-                    .font(.title3)
-                    .foregroundColor(color)
-                Text(title)
-                    .font(.caption)
-                    .foregroundColor(.primary)
+                    Image(systemName: icon)
+                        .font(.title3)
+                        .foregroundColor(color)
+                    Text(title)
+                        .font(.rethinkSans(12, relativeTo: .caption))
+                        .foregroundColor(.primary)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
@@ -164,12 +164,14 @@ struct ProviderResponseView: View {
             Form {
                 Section("Provider Response") {
                     TextEditor(text: $responseText)
+                        .font(.rethinkSans(17, relativeTo: .body))
                         .frame(minHeight: 150)
                 }
                 .listRowBackground(Color.adaptiveSecondaryBackground(for: colorScheme))
                 
                 Section("Provider Name") {
                     TextField("Your name (optional)", text: $providerName)
+                        .font(.rethinkSans(17, relativeTo: .body))
                 }
                 .listRowBackground(Color.adaptiveSecondaryBackground(for: colorScheme))
                 
@@ -190,6 +192,7 @@ struct ProviderResponseView: View {
                                 ProgressView()
                             }
                             Text(isSubmitting ? "Submitting..." : "Submit Response")
+                                .font(.rethinkSansBold(17, relativeTo: .body))
                         }
                         .frame(maxWidth: .infinity)
                     }

@@ -127,33 +127,13 @@ class ProviderConversationStore: ObservableObject {
     
     /// Load full conversation details for a specific conversation
     func loadConversationDetails(id: UUID) async {
-        // Check cache first
-        if let cached = conversationDetailsCache[id] {
-            await MainActor.run {
-                // Update cache if needed
-                if let index = reviewRequests.firstIndex(where: { 
-                    if let storedId = UUID(uuidString: $0.conversationId) {
-                        return storedId == id
-                    }
-                    return $0.conversationId.lowercased() == id.uuidString.lowercased()
-                }) {
-                    reviewRequests[index] = cached
-                }
-            }
-            return
-        }
-        
-        // Check if we already have it in reviewRequests
-        if let existing = getConversationDetails(for: id) {
-            await MainActor.run {
-                conversationDetailsCache[id] = existing
-            }
-            return
-        }
-        
+        // Always fetch fresh data from server (don't use cache)
+        // This ensures we get the latest status after updates
         await MainActor.run {
             isLoading = true
             errorMessage = nil
+            // Clear cache to force refresh
+            conversationDetailsCache.removeValue(forKey: id)
         }
         
         do {
@@ -258,7 +238,7 @@ class ProviderConversationStore: ObservableObject {
     }
     
     /// Update the status of a review request (internal method)
-    func updateStatus(id: String, status: String) async throws {
+    private func updateStatus(id: String, status: String) async throws {
         await MainActor.run {
             isLoading = true
             errorMessage = nil
@@ -266,6 +246,12 @@ class ProviderConversationStore: ObservableObject {
         
         do {
             try await supabaseService.updateReviewStatus(id: id, status: status)
+            
+            // Clear cache for this conversation to force refresh
+            if let request = reviewRequests.first(where: { $0.id == id }),
+               let conversationId = UUID(uuidString: request.conversationId) {
+                conversationDetailsCache.removeValue(forKey: conversationId)
+            }
             
             // Refresh review requests to get updated status
             await loadReviewRequests()
@@ -316,6 +302,12 @@ class ProviderConversationStore: ObservableObject {
                 name: name,
                 urgency: urgency
             )
+            
+            // Clear cache for this conversation to force refresh
+            if let request = reviewRequests.first(where: { $0.id == id }),
+               let conversationId = UUID(uuidString: request.conversationId) {
+                conversationDetailsCache.removeValue(forKey: conversationId)
+            }
             
             // Refresh review requests
             await loadReviewRequests()

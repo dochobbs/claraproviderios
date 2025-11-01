@@ -36,6 +36,7 @@ struct PatientProfileView: View {
                         }
                     } else {
                         Text("Medical history not available")
+                            .font(.rethinkSans(15, relativeTo: .subheadline))
                             .foregroundColor(.secondary)
                             .padding()
                     }
@@ -81,16 +82,20 @@ struct PatientHeaderView: View {
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(name)
-                    .font(.title2)
-                    .fontWeight(.semibold)
+                    .font(.rethinkSansBold(22, relativeTo: .title2))
                 
                 HStack(spacing: 12) {
-                    Label(age, systemImage: "calendar")
+                    Label {
+                        Text(age)
+                            .font(.system(.subheadline, design: .monospaced))
+                    } icon: {
+                        Image(systemName: "calendar")
+                    }
                     if let gender = gender {
                         Label(gender, systemImage: "person.fill")
+                            .font(.rethinkSans(15, relativeTo: .subheadline))
                     }
                 }
-                .font(.subheadline)
                 .foregroundColor(.secondary)
             }
             
@@ -110,11 +115,11 @@ struct MedicalHistorySection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.headline)
+                .font(.rethinkSansBold(17, relativeTo: .headline))
             
             if items.isEmpty {
                 Text("None recorded")
-                    .font(.subheadline)
+                    .font(.rethinkSans(15, relativeTo: .subheadline))
                     .foregroundColor(.secondary)
                     .italic()
             } else {
@@ -124,7 +129,7 @@ struct MedicalHistorySection: View {
                             .font(.system(size: 6))
                             .foregroundColor(.secondary)
                         Text(item)
-                            .font(.subheadline)
+                            .font(.rethinkSans(15, relativeTo: .subheadline))
                     }
                 }
             }
@@ -143,10 +148,10 @@ struct NotesSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Notes")
-                .font(.headline)
+                .font(.rethinkSansBold(17, relativeTo: .headline))
             
             Text(notes)
-                .font(.subheadline)
+                .font(.rethinkSans(15, relativeTo: .subheadline))
                 .foregroundColor(.secondary)
         }
         .padding()
@@ -172,11 +177,11 @@ struct ConversationHistorySection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Conversation History")
-                .font(.headline)
+                .font(.rethinkSansBold(17, relativeTo: .headline))
             
             if conversations.isEmpty {
                 Text("No conversations found")
-                    .font(.subheadline)
+                    .font(.rethinkSans(15, relativeTo: .subheadline))
                     .foregroundColor(.secondary)
                     .padding()
             } else {
@@ -191,7 +196,7 @@ struct ConversationHistorySection: View {
                 
                 if conversations.count > 5 {
                     Text("And \(conversations.count - 5) more conversations...")
-                        .font(.caption)
+                        .font(.rethinkSans(12, relativeTo: .caption))
                         .foregroundColor(.secondary)
                 }
             }
@@ -209,14 +214,13 @@ struct ConversationHistoryRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
                         Text(request.conversationTitle ?? "Untitled Conversation")
-                .font(.subheadline)
-                .fontWeight(.medium)
+                .font(.rethinkSansBold(15, relativeTo: .subheadline))
                 .lineLimit(1)
             
             HStack {
                 if let createdAt = request.createdAt {
                     Text(formatDate(createdAt))
-                        .font(.caption)
+                        .font(.system(.caption, design: .monospaced))
                         .foregroundColor(.secondary)
                 }
                 

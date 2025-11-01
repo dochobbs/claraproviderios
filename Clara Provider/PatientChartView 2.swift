@@ -26,7 +26,7 @@ struct PatientChartView: View {
                         ProgressView()
                             .progressViewStyle(CircularProgressViewStyle())
                         Text("Loading conversations…")
-                            .font(.subheadline)
+                            .font(.rethinkSans(15, relativeTo: .subheadline))
                             .foregroundColor(.secondary)
                     }
                     .frame(maxWidth: .infinity)
@@ -39,9 +39,9 @@ struct PatientChartView: View {
                             .font(.largeTitle)
                             .foregroundColor(.secondary)
                         Text(searchText.isEmpty ? "No Conversations" : "No Results")
-                            .font(.headline)
+                            .font(.rethinkSansBold(17, relativeTo: .headline))
                         Text(searchText.isEmpty ? "This patient has no conversations." : "Try a different search.")
-                            .font(.subheadline)
+                            .font(.rethinkSans(15, relativeTo: .subheadline))
                             .foregroundColor(.secondary)
                     }
                     .frame(maxWidth: .infinity)
@@ -56,11 +56,11 @@ struct PatientChartView: View {
                                 .font(.title3)
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(convo.title?.isEmpty == false ? (convo.title ?? "Conversation") : "Conversation")
-                                    .font(.headline)
+                                    .font(.rethinkSansBold(17, relativeTo: .headline))
                                     .lineLimit(1)
                                 if let updated = convo.updatedAt ?? convo.createdAt {
                                     Text(relative(updated))
-                                        .font(.caption)
+                                        .font(.system(.caption, design: .monospaced))
                                         .foregroundColor(.secondary)
                                 }
                             }

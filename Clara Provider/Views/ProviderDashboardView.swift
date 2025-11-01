@@ -120,11 +120,10 @@ struct StatCard: View {
             }
             
             Text(value)
-                .font(.title)
-                .fontWeight(.bold)
+                .font(.rethinkSansBold(28, relativeTo: .title))
             
             Text(title)
-                .font(.caption)
+                .font(.rethinkSans(12, relativeTo: .caption))
                 .foregroundColor(.secondary)
         }
         .padding()
@@ -140,7 +139,7 @@ struct QuickActionsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Quick Actions")
-                .font(.headline)
+                .font(.rethinkSansBold(17, relativeTo: .headline))
             
             HStack(spacing: 12) {
                 QuickActionButton(
@@ -190,11 +189,10 @@ struct QuickActionButton: View {
                     .foregroundColor(color)
                 
                 Text("\(count)")
-                    .font(.title3)
-                    .fontWeight(.bold)
+                    .font(.rethinkSansBold(20, relativeTo: .title3))
                 
                 Text(title)
-                    .font(.caption)
+                    .font(.rethinkSans(12, relativeTo: .caption))
                     .foregroundColor(.secondary)
             }
             .frame(maxWidth: .infinity)
@@ -216,11 +214,11 @@ struct RecentActivitySection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Recent Activity")
-                .font(.headline)
+                .font(.rethinkSansBold(17, relativeTo: .headline))
             
             if recentReviews.isEmpty {
                 Text("No recent activity")
-                    .font(.subheadline)
+                    .font(.rethinkSans(15, relativeTo: .subheadline))
                     .foregroundColor(.secondary)
                     .padding()
             } else {
@@ -253,13 +251,12 @@ struct RecentActivityRow: View {
             
             VStack(alignment: .leading, spacing: 4) {
                     Text(request.conversationTitle ?? "Untitled Conversation")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+                    .font(.rethinkSansBold(15, relativeTo: .subheadline))
                     .lineLimit(1)
                 
                 if let childName = request.childName {
                     Text(childName)
-                        .font(.caption)
+                        .font(.rethinkSans(12, relativeTo: .caption))
                         .foregroundColor(.secondary)
                 }
             }
@@ -267,11 +264,11 @@ struct RecentActivityRow: View {
             Spacer()
             
             VStack(alignment: .trailing, spacing: 4) {
-                if let createdAt = request.createdAt {
-                    Text(formatDate(createdAt))
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
+                    if let createdAt = request.createdAt {
+                        Text(formatDate(createdAt))
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundColor(.secondary)
+                    }
                 
                 StatusBadge(status: request.status ?? "pending")
             }
