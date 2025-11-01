@@ -1,0 +1,398 @@
+import Foundation
+import Combine
+
+// MARK: - Provider Conversation Store
+// Manages state for provider review requests and conversations
+class ProviderConversationStore: ObservableObject {
+    @Published var reviewRequests: [ProviderReviewRequestDetail] = []
+    @Published var selectedConversationId: UUID? = nil
+    @Published var isLoading: Bool = false
+    @Published var errorMessage: String? = nil
+    
+    // Cache for full conversation details
+    private var conversationDetailsCache: [UUID: ProviderReviewRequestDetail] = [:]
+    
+    // Auto-refresh timer
+    private var refreshTimer: Timer?
+    private let refreshInterval: TimeInterval = 60 // 60 seconds
+    
+    private let supabaseService = ProviderSupabaseService.shared
+    
+    init() {
+        startAutoRefresh()
+        
+        // Update badge count when review requests change
+        $reviewRequests
+            .map { $0.filter { $0.status == "pending" }.count }
+            .removeDuplicates()
+            .sink { count in
+                ProviderPushNotificationManager.shared.updateBadgeCount(pendingCount: count)
+            }
+            .store(in: &cancellables)
+    }
+    
+    private var cancellables = Set<AnyCancellable>()
+    
+    deinit {
+        stopAutoRefresh()
+    }
+    
+    // MARK: - Load Review Requests
+    
+    /// Load all review requests from Supabase
+    func loadReviewRequests() async {
+        await MainActor.run {
+            isLoading = true
+            errorMessage = nil
+        }
+        
+        do {
+            let requests = try await supabaseService.fetchProviderReviewRequests()
+            
+            await MainActor.run {
+                print("📊 Loaded \(requests.count) review requests")
+                
+                // Debug: Log sample data to see what we're getting
+                if let first = requests.first {
+                    print("📋 Sample request:")
+                    print("   ID: \(first.id)")
+                    print("   Conversation ID: \(first.conversationId)")
+                    print("   Title: \(first.conversationTitle ?? "nil")")
+                    print("   Child Name: \(first.childName ?? "nil")")
+                    print("   Child Age: \(first.childAge ?? "nil")")
+                    print("   Messages count: \(first.conversationMessages?.count ?? 0)")
+                }
+                
+                reviewRequests = requests
+                isLoading = false
+            }
+        } catch {
+            await MainActor.run {
+                let errorDesc = error.localizedDescription
+                errorMessage = errorDesc
+                isLoading = false
+                print("❌ Error loading review requests: \(error)")
+                if let supabaseError = error as? SupabaseError {
+                    print("   Supabase error details: \(supabaseError)")
+                }
+            }
+        }
+    }
+    
+    /// Load review requests filtered by status
+    func loadReviewRequests(status: String) async {
+        await MainActor.run {
+            isLoading = true
+            errorMessage = nil
+        }
+        
+        do {
+            let requests: [ProviderReviewRequestDetail]
+            
+            switch status {
+            case "pending":
+                requests = try await supabaseService.fetchPendingReviews()
+            case "escalated":
+                requests = try await supabaseService.fetchEscalatedReviews()
+            case "flagged":
+                requests = try await supabaseService.fetchFlaggedReviews()
+            default:
+                requests = try await supabaseService.fetchProviderReviewRequests(status: status)
+            }
+            
+            await MainActor.run {
+                reviewRequests = requests
+                isLoading = false
+            }
+        } catch {
+            await MainActor.run {
+                errorMessage = error.localizedDescription
+                isLoading = false
+            }
+            print("❌ Error loading review requests: \(error)")
+        }
+    }
+    
+    // MARK: - Reviews
+    func fetchReviewForConversation(id: UUID) async -> ProviderReviewRequestDetail? {
+        do {
+            return try await supabaseService.fetchReviewForConversation(conversationId: id)
+        } catch {
+            print("❌ Error fetching review for conversation: \(error)")
+            return nil
+        }
+    }
+    
+    // MARK: - Load Conversation Details
+    
+    /// Load full conversation details for a specific conversation
+    func loadConversationDetails(id: UUID) async {
+        // Check cache first
+        if let cached = conversationDetailsCache[id] {
+            await MainActor.run {
+                // Update cache if needed
+                if let index = reviewRequests.firstIndex(where: { 
+                    if let storedId = UUID(uuidString: $0.conversationId) {
+                        return storedId == id
+                    }
+                    return $0.conversationId.lowercased() == id.uuidString.lowercased()
+                }) {
+                    reviewRequests[index] = cached
+                }
+            }
+            return
+        }
+        
+        // Check if we already have it in reviewRequests
+        if let existing = getConversationDetails(for: id) {
+            await MainActor.run {
+                conversationDetailsCache[id] = existing
+            }
+            return
+        }
+        
+        await MainActor.run {
+            isLoading = true
+            errorMessage = nil
+        }
+        
+        do {
+            if let details = try await supabaseService.fetchConversationDetails(conversationId: id) {
+                await MainActor.run {
+                    conversationDetailsCache[id] = details
+                    
+                    // Update in reviewRequests if present
+                    if let index = reviewRequests.firstIndex(where: { 
+                        if let storedId = UUID(uuidString: $0.conversationId) {
+                            return storedId == id
+                        }
+                        return $0.conversationId.lowercased() == id.uuidString.lowercased()
+                    }) {
+                        reviewRequests[index] = details
+                    }
+                    
+                    isLoading = false
+                }
+            } else {
+                await MainActor.run {
+                    // Only show error if we don't have it cached or in list
+                    if getConversationDetails(for: id) == nil {
+                        errorMessage = "Conversation not found"
+                    }
+                    isLoading = false
+                }
+            }
+        } catch {
+            await MainActor.run {
+                // Only show error if we don't have it cached or in list
+                if getConversationDetails(for: id) == nil {
+                    errorMessage = error.localizedDescription
+                }
+                isLoading = false
+            }
+            print("❌ Error loading conversation details: \(error)")
+        }
+    }
+    
+    /// Get conversation details (from cache or reviewRequests)
+    func getConversationDetails(for conversationId: UUID) -> ProviderReviewRequestDetail? {
+        // First check cache
+        if let cached = conversationDetailsCache[conversationId] {
+            return cached
+        }
+        
+        // Then check reviewRequests list with flexible matching
+        if let found = reviewRequests.first(where: { 
+            if let storedId = UUID(uuidString: $0.conversationId) {
+                return storedId == conversationId
+            }
+            // Fallback: compare as strings (case-insensitive)
+            return $0.conversationId.lowercased() == conversationId.uuidString.lowercased()
+        }) {
+            return found
+        }
+        
+        return nil
+    }
+    
+    // MARK: - Send Message
+    
+    /// Send a message from provider to patient
+    func sendMessage(
+        conversationId: UUID,
+        content: String,
+        urgency: String = "routine"
+    ) async throws {
+        await MainActor.run {
+            isLoading = true
+            errorMessage = nil
+        }
+        
+        do {
+            _ = try await supabaseService.sendProviderMessage(
+                conversationId: conversationId,
+                message: content,
+                urgency: urgency
+            )
+            
+            // Refresh conversation details after sending message
+            await loadConversationDetails(id: conversationId)
+            
+            await MainActor.run {
+                isLoading = false
+            }
+        } catch {
+            await MainActor.run {
+                errorMessage = error.localizedDescription
+                isLoading = false
+            }
+            throw error
+        }
+    }
+    
+    // MARK: - Update Status
+    
+    /// Update the status of a review request (public method)
+    func updateReviewStatus(id: String, status: String) async throws {
+        try await updateStatus(id: id, status: status)
+    }
+    
+    /// Update the status of a review request (internal method)
+    func updateStatus(id: String, status: String) async throws {
+        await MainActor.run {
+            isLoading = true
+            errorMessage = nil
+        }
+        
+        do {
+            try await supabaseService.updateReviewStatus(id: id, status: status)
+            
+            // Refresh review requests to get updated status
+            await loadReviewRequests()
+            
+            await MainActor.run {
+                isLoading = false
+            }
+        } catch {
+            await MainActor.run {
+                errorMessage = error.localizedDescription
+                isLoading = false
+            }
+            throw error
+        }
+    }
+    
+    /// Flag a conversation for review
+    func flagConversation(id: String) async throws {
+        try await updateStatus(id: id, status: "flagged")
+    }
+    
+    /// Escalate a conversation
+    func escalateConversation(id: String) async throws {
+        try await updateStatus(id: id, status: "escalated")
+    }
+    
+    /// Mark a conversation as resolved
+    func markAsResolved(id: String) async throws {
+        try await updateStatus(id: id, status: "responded")
+    }
+    
+    /// Add provider response to a review request
+    func addProviderResponse(
+        id: String,
+        response: String,
+        name: String?,
+        urgency: String?
+    ) async throws {
+        await MainActor.run {
+            isLoading = true
+            errorMessage = nil
+        }
+        
+        do {
+            try await supabaseService.addProviderResponse(
+                id: id,
+                response: response,
+                name: name,
+                urgency: urgency
+            )
+            
+            // Refresh review requests
+            await loadReviewRequests()
+            
+            await MainActor.run {
+                isLoading = false
+            }
+        } catch {
+            await MainActor.run {
+                errorMessage = error.localizedDescription
+                isLoading = false
+            }
+            throw error
+        }
+    }
+    
+    // MARK: - Refresh Conversation
+    
+    /// Refresh a specific conversation
+    func refreshConversation(id: UUID) async {
+        // Clear cache
+        conversationDetailsCache.removeValue(forKey: id)
+        
+        // Reload
+        await loadConversationDetails(id: id)
+    }
+    
+    // MARK: - Auto Refresh
+    
+    /// Start automatic refresh timer
+    func startAutoRefresh() {
+        stopAutoRefresh()
+        
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: refreshInterval, repeats: true) { [weak self] _ in
+            Task {
+                await self?.loadReviewRequests()
+            }
+        }
+    }
+    
+    /// Stop automatic refresh timer
+    func stopAutoRefresh() {
+        refreshTimer?.invalidate()
+        refreshTimer = nil
+    }
+    
+    /// Manually refresh review requests
+    func refresh() async {
+        await loadReviewRequests()
+    }
+    
+    // MARK: - Computed Properties
+    
+    /// Get pending reviews count
+    var pendingCount: Int {
+        reviewRequests.filter { $0.status == "pending" }.count
+    }
+    
+    /// Get escalated reviews count
+    var escalatedCount: Int {
+        reviewRequests.filter { $0.status == "escalated" }.count
+    }
+    
+    /// Get flagged reviews count
+    var flaggedCount: Int {
+        reviewRequests.filter { $0.status == "flagged" }.count
+    }
+    
+    /// Get reviews responded today
+    var respondedTodayCount: Int {
+        let today = Calendar.current.startOfDay(for: Date())
+        return reviewRequests.filter { review in
+            guard let respondedAt = review.respondedAt,
+                  let respondedDate = ISO8601DateFormatter().date(from: respondedAt) else {
+                return false
+            }
+            return Calendar.current.isDate(respondedDate, inSameDayAs: today)
+        }.count
+    }
+}

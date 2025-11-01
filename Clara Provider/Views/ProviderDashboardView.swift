@@ -1,0 +1,306 @@
+import SwiftUI
+
+struct ProviderDashboardView: View {
+    @EnvironmentObject var store: ProviderConversationStore
+    @Environment(\.colorScheme) var colorScheme
+    @State private var stats: ProviderDashboardStats? = nil
+    @State private var isLoadingStats = false
+    
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                // Stats cards
+                if isLoadingStats {
+                    ProgressView("Loading statistics...")
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                } else if let stats = stats {
+                    StatsGrid(stats: stats)
+                }
+                
+                // Quick actions
+                QuickActionsSection(store: store)
+                
+                // Recent activity
+                RecentActivitySection(store: store)
+            }
+            .padding()
+        }
+        .scrollContentBackground(.hidden)
+        .background(Color.adaptiveBackground(for: colorScheme))
+        .navigationTitle("Dashboard")
+        .refreshable {
+            await refreshDashboard()
+        }
+        .onAppear {
+            loadDashboard()
+        }
+    }
+    
+    private func loadDashboard() {
+        Task {
+            await refreshDashboard()
+        }
+    }
+    
+    private func refreshDashboard() async {
+        isLoadingStats = true
+        
+        // Refresh review requests first
+        await store.loadReviewRequests()
+        
+        // Then fetch stats
+        do {
+            let dashboardStats = try await ProviderSupabaseService.shared.fetchDashboardStats()
+            await MainActor.run {
+                stats = dashboardStats
+                isLoadingStats = false
+            }
+        } catch {
+            await MainActor.run {
+                isLoadingStats = false
+                print("Error loading dashboard stats: \(error)")
+            }
+        }
+    }
+}
+
+struct StatsGrid: View {
+    let stats: ProviderDashboardStats
+    
+    var body: some View {
+        LazyVGrid(columns: [
+            GridItem(.flexible()),
+            GridItem(.flexible())
+        ], spacing: 16) {
+            StatCard(
+                title: "Pending",
+                value: "\(stats.pendingReviews)",
+                color: .orange,
+                icon: "clock.fill"
+            )
+            
+            StatCard(
+                title: "Responded Today",
+                value: "\(stats.respondedToday)",
+                color: .primaryCoral,
+                icon: "checkmark.circle.fill"
+            )
+            
+            StatCard(
+                title: "Escalated",
+                value: "\(stats.escalatedConversations)",
+                color: .red,
+                icon: "exclamationmark.triangle.fill"
+            )
+            
+            StatCard(
+                title: "Avg Response Time",
+                value: stats.averageResponseTimeFormatted,
+                color: .primaryCoral,
+                icon: "timer"
+            )
+        }
+    }
+}
+
+struct StatCard: View {
+    let title: String
+    let value: String
+    let color: Color
+    let icon: String
+    @Environment(\.colorScheme) var colorScheme
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: icon)
+                    .foregroundColor(color)
+                Spacer()
+            }
+            
+            Text(value)
+                .font(.title)
+                .fontWeight(.bold)
+            
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.adaptiveSecondaryBackground(for: colorScheme))
+        .cornerRadius(12)
+    }
+}
+
+struct QuickActionsSection: View {
+    @ObservedObject var store: ProviderConversationStore
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Quick Actions")
+                .font(.headline)
+            
+            HStack(spacing: 12) {
+                QuickActionButton(
+                    title: "Pending Reviews",
+                    icon: "clock.fill",
+                    color: .orange,
+                    count: store.pendingCount
+                ) {
+                    // Navigate to pending reviews
+                }
+                
+                QuickActionButton(
+                    title: "Escalated",
+                    icon: "exclamationmark.triangle.fill",
+                    color: .red,
+                    count: store.escalatedCount
+                ) {
+                    // Navigate to escalated reviews
+                }
+                
+                QuickActionButton(
+                    title: "Flagged",
+                    icon: "flag.fill",
+                    color: .yellow,
+                    count: store.flaggedCount
+                ) {
+                    // Navigate to flagged reviews
+                }
+            }
+        }
+    }
+}
+
+struct QuickActionButton: View {
+    let title: String
+    let icon: String
+    let color: Color
+    let count: Int
+    let action: () -> Void
+    @Environment(\.colorScheme) var colorScheme
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.title2)
+                    .foregroundColor(color)
+                
+                Text("\(count)")
+                    .font(.title3)
+                    .fontWeight(.bold)
+                
+                Text(title)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(Color.adaptiveSecondaryBackground(for: colorScheme))
+            .cornerRadius(12)
+        }
+    }
+}
+
+struct RecentActivitySection: View {
+    @ObservedObject var store: ProviderConversationStore
+    @Environment(\.colorScheme) var colorScheme
+    
+    var recentReviews: [ProviderReviewRequestDetail] {
+        Array(store.reviewRequests.prefix(5))
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Recent Activity")
+                .font(.headline)
+            
+            if recentReviews.isEmpty {
+                Text("No recent activity")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .padding()
+            } else {
+                ForEach(recentReviews, id: \.id) { request in
+                    NavigationLink(
+                        destination: ConversationDetailView(conversationId: UUID(uuidString: request.conversationId) ?? UUID())
+                            .environmentObject(store)
+                    ) {
+                        RecentActivityRow(request: request)
+                    }
+                }
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.adaptiveSecondaryBackground(for: colorScheme))
+        .cornerRadius(12)
+    }
+}
+
+struct RecentActivityRow: View {
+    let request: ProviderReviewRequestDetail
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // Status indicator
+            Circle()
+                .fill(statusColor)
+                .frame(width: 8, height: 8)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                    Text(request.conversationTitle ?? "Untitled Conversation")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .lineLimit(1)
+                
+                if let childName = request.childName {
+                    Text(childName)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            Spacer()
+            
+            VStack(alignment: .trailing, spacing: 4) {
+                if let createdAt = request.createdAt {
+                    Text(formatDate(createdAt))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                StatusBadge(status: request.status ?? "pending")
+            }
+        }
+        .padding(.vertical, 8)
+    }
+    
+    var statusColor: Color {
+        switch request.status {
+        case "pending":
+            return .orange
+        case "escalated":
+            return .red
+        case "flagged":
+            return .yellow
+        case "responded":
+            return .green
+        default:
+            return .gray
+        }
+    }
+    
+    private func formatDate(_ dateString: String) -> String {
+        let formatter = ISO8601DateFormatter()
+        if let date = formatter.date(from: dateString) {
+            let relativeFormatter = RelativeDateTimeFormatter()
+            relativeFormatter.unitsStyle = .abbreviated
+            return relativeFormatter.localizedString(for: date, relativeTo: Date())
+        }
+        return dateString
+    }
+}
