@@ -49,7 +49,7 @@ struct ContentView: View {
                     .toolbar {
                         ToolbarItem(placement: .topBarLeading) {
                             Button(action: { withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { isMenuOpen.toggle() } }) {
-                                Image(systemName: "line.3.horizontal")
+                                Image(systemName: "person.2")
                                     .imageScale(.large)
                                     .foregroundColor(.primaryCoral)
                             }

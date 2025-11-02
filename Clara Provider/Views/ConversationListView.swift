@@ -196,7 +196,7 @@ struct ConversationRowView: View {
             
             if let childName = request.childName {
                 HStack(spacing: 4) {
-                    Image(systemName: "person.fill")
+                    Image(systemName: "person.crop.circle")
                     Text(childName)
                         .font(.rethinkSans(15, relativeTo: .subheadline))
                         .foregroundColor(.secondary)
@@ -210,7 +210,7 @@ struct ConversationRowView: View {
             } else {
                 // Show user ID if child name is not available
                 HStack(spacing: 4) {
-                    Image(systemName: "person.fill")
+                    Image(systemName: "person.crop.circle")
                     Text("User: \(request.userId)")
                         .font(.rethinkSans(15, relativeTo: .subheadline))
                         .foregroundColor(.secondary)
@@ -332,7 +332,7 @@ struct EmptyStateView: View {
     
     var body: some View {
         VStack(spacing: 16) {
-            Image(systemName: "tray")
+            Image(systemName: "bubble.left.and.bubble.right")
                 .font(.system(size: 48))
                 .foregroundColor(.secondary)
             Text(title)

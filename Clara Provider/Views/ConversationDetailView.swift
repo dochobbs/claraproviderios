@@ -12,6 +12,7 @@ struct ConversationDetailView: View {
     @State private var selectedResponse: ProviderResponseType = .agree
     @State private var isSubmitting = false
     @State private var conversationReview: ProviderReviewRequestDetail? = nil
+    @State private var includeProviderName: Bool = false
     
     var conversationDetail: ProviderReviewRequestDetail? {
         store.getConversationDetails(for: conversationId)
@@ -89,6 +90,7 @@ struct ConversationDetailView: View {
                     replyText: $replyText,
                     selectedResponse: $selectedResponse,
                     isSubmitting: $isSubmitting,
+                    includeProviderName: $includeProviderName,
                     onSubmit: {
                         submitReview()
                     }
@@ -221,11 +223,20 @@ struct ConversationDetailView: View {
                 }
                 
                 // Add provider response if text is provided
-                if !replyText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                var finalResponse = replyText.trimmingCharacters(in: .whitespacesAndNewlines)
+                
+                // Include provider name if checkbox is checked
+                if includeProviderName && !finalResponse.isEmpty {
+                    finalResponse = "\(finalResponse)\n\n— Dr Michael Hobbs"
+                } else if includeProviderName && finalResponse.isEmpty {
+                    finalResponse = "— Dr Michael Hobbs"
+                }
+                
+                if !finalResponse.isEmpty {
                     try await ProviderSupabaseService.shared.addProviderResponse(
                         id: detail.id,
-                        response: replyText,
-                        name: nil,
+                        response: finalResponse,
+                        name: includeProviderName ? "Dr Michael Hobbs" : nil,
                         urgency: selectedResponse == .escalationNeeded ? "urgent" : nil,
                         status: status
                     )
@@ -235,8 +246,8 @@ struct ConversationDetailView: View {
                         try? await ProviderSupabaseService.shared.createPatientNotificationMessage(
                             conversationId: conversationUUID,
                             userId: detail.userId,
-                            providerResponse: replyText,
-                            providerName: nil
+                            providerResponse: finalResponse,
+                            providerName: includeProviderName ? "Dr Michael Hobbs" : nil
                         )
                     }
                 } else {
@@ -252,11 +263,12 @@ struct ConversationDetailView: View {
                 
                 // Refresh the review display
                 let updatedReview = await store.fetchReviewForConversation(id: conversationId)
-                await MainActor.run {
-                    conversationReview = updatedReview
-                    isSubmitting = false
-                    replyText = ""
-                }
+                    await MainActor.run {
+                        conversationReview = updatedReview
+                        isSubmitting = false
+                        replyText = ""
+                        includeProviderName = false
+                    }
             } catch {
                 await MainActor.run {
                     isSubmitting = false
@@ -291,6 +303,7 @@ struct ProviderReplyBox: View {
     @Binding var replyText: String
     @Binding var selectedResponse: ProviderResponseType
     @Binding var isSubmitting: Bool
+    @Binding var includeProviderName: Bool
     @Environment(\.colorScheme) var colorScheme
     let onSubmit: () -> Void
     
@@ -298,19 +311,37 @@ struct ProviderReplyBox: View {
         VStack(spacing: 12) {
             Divider()
             
-            // Response Type Dropdown
+            // Response Type Dropdown with Checkbox
             VStack(alignment: .leading, spacing: 8) {
                 Text("Response")
                     .font(.rethinkSans(12, relativeTo: .caption))
                     .foregroundColor(.secondary)
                 
-                Picker("Response Type", selection: $selectedResponse) {
-                    ForEach(ProviderResponseType.allCases, id: \.self) { responseType in
-                        Text(responseType.displayName).tag(responseType)
+                HStack(spacing: 12) {
+                    Picker("Response Type", selection: $selectedResponse) {
+                        ForEach(ProviderResponseType.allCases, id: \.self) { responseType in
+                            Text(responseType.displayName).tag(responseType)
+                        }
                     }
+                    .pickerStyle(.menu)
+                    .tint(.primaryCoral)
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        includeProviderName.toggle()
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: includeProviderName ? "checkmark.square.fill" : "square")
+                                .foregroundColor(includeProviderName ? .primaryCoral : .secondary)
+                                .font(.system(size: 18))
+                            Text("Dr Michael Hobbs")
+                                .font(.rethinkSans(15, relativeTo: .subheadline))
+                                .foregroundColor(Color.adaptiveLabel(for: colorScheme))
+                        }
+                    }
+                    .buttonStyle(PlainButtonStyle())
                 }
-                .pickerStyle(.menu)
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(.horizontal)
             

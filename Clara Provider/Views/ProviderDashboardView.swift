@@ -77,28 +77,28 @@ struct StatsGrid: View {
                 title: "Pending",
                 value: "\(stats.pendingReviews)",
                 color: .orange,
-                icon: "clock.fill"
+                icon: "hourglass"
             )
             
             StatCard(
                 title: "Responded Today",
                 value: "\(stats.respondedToday)",
                 color: .primaryCoral,
-                icon: "checkmark.circle.fill"
+                icon: "checkmark.message"
             )
             
             StatCard(
                 title: "Escalated",
                 value: "\(stats.escalatedConversations)",
                 color: .red,
-                icon: "exclamationmark.triangle.fill"
+                icon: "exclamationmark.triangle"
             )
             
             StatCard(
                 title: "Avg Response Time",
                 value: stats.averageResponseTimeFormatted,
                 color: .primaryCoral,
-                icon: "timer"
+                icon: "clock"
             )
         }
     }
@@ -144,7 +144,7 @@ struct QuickActionsSection: View {
             HStack(spacing: 12) {
                 QuickActionButton(
                     title: "Pending Reviews",
-                    icon: "clock.fill",
+                    icon: "hourglass",
                     color: .orange,
                     count: store.pendingCount
                 ) {
@@ -153,7 +153,7 @@ struct QuickActionsSection: View {
                 
                 QuickActionButton(
                     title: "Escalated",
-                    icon: "exclamationmark.triangle.fill",
+                    icon: "exclamationmark.triangle",
                     color: .red,
                     count: store.escalatedCount
                 ) {
@@ -162,7 +162,7 @@ struct QuickActionsSection: View {
                 
                 QuickActionButton(
                     title: "Flagged",
-                    icon: "flag.fill",
+                    icon: "flag",
                     color: .yellow,
                     count: store.flaggedCount
                 ) {

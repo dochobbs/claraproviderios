@@ -76,7 +76,7 @@ struct PatientHeaderView: View {
     
     var body: some View {
         HStack(spacing: 16) {
-            Image(systemName: "person.circle.fill")
+            Image(systemName: "person.crop.circle.fill")
                 .font(.system(size: 60))
                 .foregroundColor(.primaryCoral)
             
@@ -89,10 +89,10 @@ struct PatientHeaderView: View {
                         Text(age)
                             .font(.system(.subheadline, design: .monospaced))
                     } icon: {
-                        Image(systemName: "calendar")
+                        Image(systemName: "birthday.cake")
                     }
                     if let gender = gender {
-                        Label(gender, systemImage: "person.fill")
+                        Label(gender, systemImage: "figure.child")
                             .font(.rethinkSans(15, relativeTo: .subheadline))
                     }
                 }
@@ -125,9 +125,9 @@ struct MedicalHistorySection: View {
             } else {
                 ForEach(items, id: \.self) { item in
                     HStack {
-                        Image(systemName: "circle.fill")
-                            .font(.system(size: 6))
-                            .foregroundColor(.secondary)
+                        Image(systemName: "pill.circle.fill")
+                            .font(.system(size: 8))
+                            .foregroundColor(.primaryCoral)
                         Text(item)
                             .font(.rethinkSans(15, relativeTo: .subheadline))
                     }
