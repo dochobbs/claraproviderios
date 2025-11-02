@@ -66,11 +66,13 @@ struct ConversationListView: View {
             if store.isLoading && store.reviewRequests.isEmpty {
                 ProgressView("Loading reviews...")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.adaptiveBackground(for: colorScheme))
             } else if filteredRequests.isEmpty {
                 EmptyStateView(
                     title: searchText.isEmpty ? "No Reviews" : "No Results",
                     message: searchText.isEmpty ? "No review requests match your filters." : "Try adjusting your search."
                 )
+                .background(Color.adaptiveBackground(for: colorScheme))
             } else {
                 List {
                     ForEach(filteredRequests, id: \.id) { request in
@@ -89,6 +91,7 @@ struct ConversationListView: View {
                 }
             }
         }
+        .background(Color.adaptiveBackground(for: colorScheme))
         .navigationTitle("Provider Reviews")
         .searchable(text: $searchText, prompt: "Search conversations...")
         .background(SearchBarCustomizer())
@@ -328,6 +331,7 @@ struct TriageBadge: View {
 struct EmptyStateView: View {
     let title: String
     let message: String
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         VStack(spacing: 16) {
@@ -336,6 +340,7 @@ struct EmptyStateView: View {
                 .foregroundColor(.secondary)
             Text(title)
                 .font(.rethinkSansBold(22, relativeTo: .title2))
+                .foregroundColor(Color.adaptiveLabel(for: colorScheme))
             Text(message)
                 .font(.rethinkSans(15, relativeTo: .subheadline))
                 .foregroundColor(.secondary)
@@ -343,5 +348,6 @@ struct EmptyStateView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()
+        .background(Color.adaptiveBackground(for: colorScheme))
     }
 }
