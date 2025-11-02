@@ -25,12 +25,11 @@ struct ConversationDetailView: View {
                     // Patient info card
                     if let detail = conversationDetail {
                         NavigationLink(
-                            destination: PatientProfileView(
+                            value: PatientProfileDestination(
                                 childId: UUID(uuidString: detail.conversationId),
                                 childName: detail.childName,
                                 childAge: detail.childAge
                             )
-                            .environmentObject(store)
                         ) {
                             PatientInfoCard(detail: detail)
                         }
@@ -207,6 +206,7 @@ struct ConversationDetailView: View {
     private func submitReview() {
         guard let detail = conversationDetail else { return }
         
+        HapticFeedback.medium()
         isSubmitting = true
         
         Task {
@@ -268,11 +268,13 @@ struct ConversationDetailView: View {
                         isSubmitting = false
                         replyText = ""
                         includeProviderName = false
+                        HapticFeedback.success()
                     }
             } catch {
                 await MainActor.run {
                     isSubmitting = false
                     errorMessage = error.localizedDescription
+                    HapticFeedback.error()
                 }
             }
         }
@@ -318,17 +320,21 @@ struct ProviderReplyBox: View {
                     .foregroundColor(.secondary)
                 
                 HStack(spacing: 12) {
-                    Picker("Response Type", selection: $selectedResponse) {
-                        ForEach(ProviderResponseType.allCases, id: \.self) { responseType in
-                            Text(responseType.displayName).tag(responseType)
-                        }
+                Picker("Response Type", selection: $selectedResponse) {
+                    ForEach(ProviderResponseType.allCases, id: \.self) { responseType in
+                        Text(responseType.displayName).tag(responseType)
                     }
-                    .pickerStyle(.menu)
-                    .tint(.primaryCoral)
+                }
+                .pickerStyle(.menu)
+                .tint(.primaryCoral)
+                .onChange(of: selectedResponse) { _, _ in
+                    HapticFeedback.selection()
+                }
                     
                     Spacer()
                     
                     Button(action: {
+                        HapticFeedback.selection()
                         includeProviderName.toggle()
                     }) {
                         HStack(spacing: 6) {
@@ -348,7 +354,7 @@ struct ProviderReplyBox: View {
             // Reply Text Box
             VStack(alignment: .leading, spacing: 8) {
                 Text("Reply (Optional)")
-                    .font(.rethinkSans(12, relativeTo: .caption))
+                    .font(.system(.caption, design: .monospaced))
                     .foregroundColor(.secondary)
                 
                 TextField("Enter your reply...", text: $replyText, axis: .vertical)

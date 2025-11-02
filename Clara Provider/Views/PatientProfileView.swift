@@ -187,8 +187,7 @@ struct ConversationHistorySection: View {
             } else {
                 ForEach(conversations.prefix(5), id: \.id) { request in
                     NavigationLink(
-                        destination: ConversationDetailView(conversationId: UUID(uuidString: request.conversationId) ?? UUID())
-                            .environmentObject(store)
+                        value: UUID(uuidString: request.conversationId) ?? UUID()
                     ) {
                         ConversationHistoryRow(request: request)
                     }

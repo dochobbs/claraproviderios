@@ -13,6 +13,12 @@ private struct PatientListItem: Identifiable, Hashable {
     let name: String
 }
 
+struct PatientProfileDestination: Hashable {
+    let childId: UUID?
+    let childName: String?
+    let childAge: String?
+}
+
 struct ContentView: View {
     @EnvironmentObject var store: ProviderConversationStore
     @Environment(\.colorScheme) var colorScheme
@@ -48,7 +54,10 @@ struct ContentView: View {
                 ConversationListView()
                     .toolbar {
                         ToolbarItem(placement: .topBarLeading) {
-                            Button(action: { withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { isMenuOpen.toggle() } }) {
+                            Button(action: {
+                                HapticFeedback.light()
+                                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { isMenuOpen.toggle() }
+                            }) {
                                 Image(systemName: "person.2")
                                     .imageScale(.large)
                                     .foregroundColor(.primaryCoral)
@@ -60,6 +69,18 @@ struct ContentView: View {
                         PatientChartView(
                             userId: patient.userId,
                             name: patient.name
+                        )
+                        .environmentObject(store)
+                    }
+                    .navigationDestination(for: UUID.self) { conversationId in
+                        ConversationDetailView(conversationId: conversationId)
+                            .environmentObject(store)
+                    }
+                    .navigationDestination(for: PatientProfileDestination.self) { destination in
+                        PatientProfileView(
+                            childId: destination.childId,
+                            childName: destination.childName,
+                            childAge: destination.childAge
                         )
                         .environmentObject(store)
                     }
@@ -225,6 +246,7 @@ private struct SideMenuView: View {
                     LazyVStack(spacing: 0) {
                         ForEach(filteredPatients, id: \.self) { item in
                             Button {
+                                HapticFeedback.medium()
                                 onSelectPatient(item)
                                 close()
                             } label: {

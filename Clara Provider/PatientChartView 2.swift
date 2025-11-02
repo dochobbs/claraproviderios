@@ -78,10 +78,6 @@ struct PatientChartView: View {
         .searchable(text: $searchText, prompt: "Search conversations…")
         .onAppear { Task { await loadConversations() } }
         .refreshable { await loadConversations() }
-        .navigationDestination(for: UUID.self) { conversationId in
-            ConversationDetailView(conversationId: conversationId)
-                .environmentObject(store)
-        }
         .alert("Error", isPresented: .constant(errorMessage != nil)) {
             Button("OK") { errorMessage = nil }
             Button("Retry") { Task { await loadConversations() } }

@@ -115,10 +115,6 @@ struct ConversationListView: View {
             for: .navigationBar
         )
         .toolbarBackground(.visible, for: .navigationBar)
-        .navigationDestination(for: UUID.self) { conversationId in
-            ConversationDetailView(conversationId: conversationId)
-                .environmentObject(store)
-        }
         .alert("Error", isPresented: .constant(store.errorMessage != nil)) {
             Button("OK") {
                 store.errorMessage = nil
@@ -163,7 +159,10 @@ struct StatusFilterButton: View {
     @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
-        Button(action: action) {
+        Button(action: {
+            HapticFeedback.selection()
+            action()
+        }) {
             VStack(spacing: 4) {
                 Text(title)
                     .font(isSelected ? .rethinkSansBold(15, relativeTo: .subheadline) : .rethinkSans(15, relativeTo: .subheadline))
