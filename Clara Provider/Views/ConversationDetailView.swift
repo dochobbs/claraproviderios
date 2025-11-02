@@ -81,7 +81,7 @@ struct ConversationDetailView: View {
             .background(Color.adaptiveBackground(for: colorScheme))
             
             // Provider Reply Box - only show if status is "pending"
-            // Once any response is submitted (responded, flagged, or escalated), hide the reply box
+            // Once any response is submitted (responded, flagged, escalated, or dismissed), hide the reply box
             if let detail = conversationDetail, 
                let status = detail.status,
                status.lowercased() == "pending" {
@@ -92,6 +92,9 @@ struct ConversationDetailView: View {
                     includeProviderName: $includeProviderName,
                     onSubmit: {
                         submitReview()
+                    },
+                    onDismiss: {
+                        dismissReview()
                     }
                 )
             }
@@ -279,6 +282,40 @@ struct ConversationDetailView: View {
             }
         }
     }
+    
+    private func dismissReview() {
+        guard let detail = conversationDetail else { return }
+        
+        HapticFeedback.medium()
+        isSubmitting = true
+        
+        Task {
+            do {
+                // Update status to "dismissed"
+                try await store.updateReviewStatus(id: detail.id, status: "dismissed")
+                
+                // Immediately refresh conversation details to get updated status
+                await store.loadConversationDetails(id: conversationId)
+                
+                // Refresh review requests list
+                await store.loadReviewRequests()
+                
+                // Refresh the review display
+                let updatedReview = await store.fetchReviewForConversation(id: conversationId)
+                await MainActor.run {
+                    conversationReview = updatedReview
+                    isSubmitting = false
+                    HapticFeedback.success()
+                }
+            } catch {
+                await MainActor.run {
+                    isSubmitting = false
+                    errorMessage = error.localizedDescription
+                    HapticFeedback.error()
+                }
+            }
+        }
+    }
 }
 
 enum ProviderResponseType: String, CaseIterable {
@@ -308,45 +345,47 @@ struct ProviderReplyBox: View {
     @Binding var includeProviderName: Bool
     @Environment(\.colorScheme) var colorScheme
     let onSubmit: () -> Void
+    let onDismiss: () -> Void
     
     var body: some View {
         VStack(spacing: 12) {
             Divider()
             
-            // Response Type Dropdown with Checkbox
+            // Response Type Dropdown with Dismiss Button
             VStack(alignment: .leading, spacing: 8) {
                 Text("Response")
                     .font(.rethinkSans(12, relativeTo: .caption))
                     .foregroundColor(.secondary)
                 
                 HStack(spacing: 12) {
-                Picker("Response Type", selection: $selectedResponse) {
-                    ForEach(ProviderResponseType.allCases, id: \.self) { responseType in
-                        Text(responseType.displayName).tag(responseType)
+                    Picker("Response Type", selection: $selectedResponse) {
+                        ForEach(ProviderResponseType.allCases, id: \.self) { responseType in
+                            Text(responseType.displayName).tag(responseType)
+                        }
                     }
-                }
-                .pickerStyle(.menu)
-                .tint(.primaryCoral)
-                .onChange(of: selectedResponse) { _, _ in
-                    HapticFeedback.selection()
-                }
+                    .pickerStyle(.menu)
+                    .tint(.primaryCoral)
+                    .onChange(of: selectedResponse) { _, _ in
+                        HapticFeedback.selection()
+                    }
                     
                     Spacer()
                     
                     Button(action: {
-                        HapticFeedback.selection()
-                        includeProviderName.toggle()
+                        HapticFeedback.medium()
+                        onDismiss()
                     }) {
                         HStack(spacing: 6) {
-                            Image(systemName: includeProviderName ? "checkmark.square.fill" : "square")
-                                .foregroundColor(includeProviderName ? .primaryCoral : .secondary)
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.secondary)
                                 .font(.system(size: 18))
-                            Text("Dr Michael Hobbs")
+                            Text("Dismiss")
                                 .font(.rethinkSans(15, relativeTo: .subheadline))
                                 .foregroundColor(Color.adaptiveLabel(for: colorScheme))
                         }
                     }
                     .buttonStyle(PlainButtonStyle())
+                    .disabled(isSubmitting)
                 }
             }
             .padding(.horizontal)

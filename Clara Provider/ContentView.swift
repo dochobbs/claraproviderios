@@ -24,6 +24,7 @@ struct ContentView: View {
     @Environment(\.colorScheme) var colorScheme
     @State private var isMenuOpen: Bool = false
     @State private var path = NavigationPath()
+    @State private var showingClaudeChat: Bool = false
     
     @State private var patients: [PatientListItem] = []
     @State private var isLoadingPatients: Bool = false
@@ -64,6 +65,20 @@ struct ContentView: View {
                             }
                             .accessibilityLabel("Open menu")
                         }
+                        
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button(action: {
+                                HapticFeedback.light()
+                                showingClaudeChat = true
+                            }) {
+                                Image("ClaudeIcon")
+                                    .resizable()
+                                    .renderingMode(.original)
+                                    .scaledToFit()
+                                    .frame(width: 24, height: 24)
+                            }
+                            .accessibilityLabel("Open Claude Chat")
+                        }
                     }
                     .navigationDestination(for: PatientListItem.self) { patient in
                         PatientChartView(
@@ -99,6 +114,11 @@ struct ContentView: View {
             )
             .task {
                 await loadPatients()
+            }
+            .sheet(isPresented: $showingClaudeChat) {
+                ClaudeChatView()
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.visible)
             }
 
             // Floating undocked menu - iOS 26 style
