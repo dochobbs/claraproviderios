@@ -4,23 +4,35 @@ import Combine
 // MARK: - Claude Chat Service
 // Service for interacting with Anthropic Claude API
 class ClaudeChatService: ObservableObject {
-    private var apiKey: String
+    private var apiKey: String {
+        didSet {
+            // Save to UserDefaults when changed
+            UserDefaults.standard.set(apiKey, forKey: "ClaudeAPIKey")
+            isConnected = !apiKey.isEmpty
+        }
+    }
     private let baseURL = "https://api.anthropic.com/v1/messages"
     private var conversationHistory: [[String: Any]] = []
+    private let apiKeyKey = "ClaudeAPIKey"
     
     @Published var isConnected: Bool = false
     
     init(apiKey: String? = nil) {
-        // Use hardcoded API key if none provided
-        // TODO: Move to secure storage (Keychain) for production
-        let defaultAPIKey = "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"
-        self.apiKey = apiKey ?? defaultAPIKey
+        // Load API key from UserDefaults or use provided one
+        if let providedKey = apiKey {
+            self.apiKey = providedKey
+        } else {
+            self.apiKey = UserDefaults.standard.string(forKey: "ClaudeAPIKey") ?? ""
+        }
         self.isConnected = !self.apiKey.isEmpty
     }
     
     func updateAPIKey(_ newKey: String) {
         self.apiKey = newKey
-        self.isConnected = !newKey.isEmpty
+    }
+    
+    func getAPIKey() -> String {
+        return apiKey
     }
     
     func sendMessage(_ message: String) async throws -> String {
