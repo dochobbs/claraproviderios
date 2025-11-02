@@ -60,9 +60,16 @@ class ProviderPushNotificationManager: NSObject {
         // Store token in UserDefaults
         UserDefaults.standard.set(tokenString, forKey: "providerPushDeviceToken")
         
-        // Note: Provider tokens might be stored differently than patient tokens
-        // For MVP, we'll just store it locally
-        // Future: Could store in a providers table in Supabase
+        // Register token with Supabase for push notifications
+        Task {
+            do {
+                try await ProviderSupabaseService.shared.registerDeviceToken(deviceToken: tokenString)
+                print("✅ Device token registered with Supabase")
+            } catch {
+                print("⚠️ Failed to register device token with Supabase: \(error)")
+                // Continue anyway - token is stored locally
+            }
+        }
     }
     
     // Handle registration failure

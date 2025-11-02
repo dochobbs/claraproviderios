@@ -393,6 +393,80 @@ class ProviderSupabaseService: SupabaseServiceBase {
         }
     }
     
+    // MARK: - Device Token Registration
+    
+    /// Register or update provider device token in Supabase
+    /// - Parameters:
+    ///   - deviceToken: APNs device token string
+    ///   - providerId: Provider's user identifier (optional, defaults to "default_provider")
+    func registerDeviceToken(deviceToken: String, providerId: String? = nil) async throws {
+        // Use a default provider ID if none provided
+        // In production, this should come from authentication
+        let userId = providerId ?? "default_provider"
+        
+        // Check if provider already exists
+        let checkUrlString = "\(projectURL)/rest/v1/providers?user_id=eq.\(userId)&select=id"
+        guard let checkUrl = URL(string: checkUrlString) else {
+            throw SupabaseError.invalidResponse
+        }
+        
+        let checkRequest = createRequest(url: checkUrl, method: "GET")
+        
+        let formatter = ISO8601DateFormatter()
+        let now = formatter.string(from: Date())
+        
+        do {
+            // Try to fetch existing provider
+            let existing: [[String: String]] = try await executeRequest(checkRequest, responseType: [[String: String]].self)
+            
+            if let existingId = existing.first?["id"] {
+                // Update existing provider
+                let updateUrlString = "\(projectURL)/rest/v1/providers?id=eq.\(existingId)"
+                guard let updateUrl = URL(string: updateUrlString) else {
+                    throw SupabaseError.invalidResponse
+                }
+                
+                var updateRequest = createPatchRequest(url: updateUrl)
+                
+                let updatePayload: [String: Any] = [
+                    "device_token": deviceToken,
+                    "device_type": "ios",
+                    "updated_at": now
+                ]
+                
+                updateRequest.httpBody = try JSONSerialization.data(withJSONObject: updatePayload)
+                
+                try await executeRequest(updateRequest)
+                print("✅ Updated device token for provider: \(userId)")
+            } else {
+                // Create new provider record
+                let createUrlString = "\(projectURL)/rest/v1/providers"
+                guard let createUrl = URL(string: createUrlString) else {
+                    throw SupabaseError.invalidResponse
+                }
+                
+                var createRequest = createPostRequest(url: createUrl)
+                
+                let createPayload: [String: Any] = [
+                    "user_id": userId,
+                    "device_token": deviceToken,
+                    "device_type": "ios",
+                    "created_at": now,
+                    "updated_at": now
+                ]
+                
+                createRequest.httpBody = try JSONSerialization.data(withJSONObject: createPayload)
+                
+                try await executeRequest(createRequest)
+                print("✅ Registered new device token for provider: \(userId)")
+            }
+        } catch {
+            print("⚠️ Error registering device token: \(error)")
+            // Don't throw - this is not critical for app functionality
+            // The webhook can still work if tokens are added manually
+        }
+    }
+    
     // MARK: - Fetch Patients
     func fetchPatients() async throws -> [PatientSummary] {
         // Adjust selected fields to match your `patients` schema

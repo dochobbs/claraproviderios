@@ -357,19 +357,32 @@ struct ProviderReplyBox: View {
                     .font(.system(.caption, design: .monospaced))
                     .foregroundColor(.secondary)
                 
-                TextField("Enter your reply...", text: $replyText, axis: .vertical)
-                    .textFieldStyle(.plain)
-                    .font(.system(.body, design: .monospaced))
-                    .padding(12)
-                    .frame(minHeight: 60, maxHeight: 120, alignment: .topLeading)
-                    .background(Color.white)
-                    .cornerRadius(8)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.adaptiveTertiaryBackground(for: colorScheme), lineWidth: 1)
-                    )
-                    .lineLimit(3...10)
-                    .disabled(isSubmitting)
+                ZStack(alignment: .topLeading) {
+                    // Placeholder text overlay (only shown when text is empty)
+                    if replyText.isEmpty {
+                        Text("Enter your reply...")
+                            .font(.system(.body, design: .monospaced))
+                            .foregroundColor(Color(red: 0.4, green: 0.4, blue: 0.4)) // Darker gray for better visibility
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 12)
+                            .allowsHitTesting(false) // Don't block taps
+                    }
+                    
+                    TextField("", text: $replyText, axis: .vertical)
+                        .textFieldStyle(.plain)
+                        .font(.system(.body, design: .monospaced))
+                        .foregroundColor(.black) // Explicit dark text color for readability
+                        .accentColor(.primaryCoral) // Coral cursor color
+                        .padding(12)
+                        .frame(minHeight: 60, maxHeight: 120, alignment: .topLeading)
+                }
+                .background(Color.white)
+                .cornerRadius(8)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.adaptiveTertiaryBackground(for: colorScheme), lineWidth: 1)
+                )
+                .disabled(isSubmitting)
             }
             .padding(.horizontal)
             
