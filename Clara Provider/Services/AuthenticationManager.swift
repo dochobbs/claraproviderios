@@ -187,10 +187,10 @@ final class AuthenticationManager: ObservableObject {
 
         let reason = "Unlock Clara Provider"
 
-        let success = try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { continuation in
             context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { result, evalError in
                 if result {
-                    continuation.resume(returning: true)
+                    continuation.resume(returning: ())
                 } else {
                     if let evalError = evalError {
                         continuation.resume(throwing: evalError)
@@ -337,9 +337,11 @@ final class AuthenticationManager: ObservableObject {
         timerScheduleTime = Date()
 
         // Create new timer (must be on main thread for Timer)
-        // Use weak self to prevent reference cycles
+        // Note: Timer fires on main thread, schedule lock via async dispatch
+        // This avoids capturing self in concurrent-executing closure (Swift 6 requirement)
         sessionTimer = Timer.scheduledTimer(withTimeInterval: remaining, repeats: false) { [weak self] _ in
-            Task { @MainActor in
+            // Schedule lock on main thread without capturing self in concurrent context
+            DispatchQueue.main.async {
                 self?.lock()
             }
         }
