@@ -419,14 +419,24 @@ class ProviderConversationStore: ObservableObject {
     }
     
     // MARK: - Refresh Conversation
-    
+
     /// Refresh a specific conversation
     func refreshConversation(id: UUID) async {
         // Clear cache
         conversationDetailsCache.removeValue(forKey: id)
-        
+
         // Reload
         await loadConversationDetails(id: id)
+    }
+
+    /// Force refresh review requests regardless of debounce timer
+    /// Used when app unlocks or when we need fresh data immediately
+    func forceRefreshReviewRequests() async {
+        // Bypass debounce by resetting the last refresh time
+        lastRefreshTime = Date.distantPast
+
+        // Now load with fresh data
+        await loadReviewRequests()
     }
     
     // MARK: - Auto Refresh

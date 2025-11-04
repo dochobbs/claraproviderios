@@ -57,8 +57,16 @@ struct Clara_ProviderApp: App {
         }
         .onChange(of: authManager.state) { _, newState in
             if newState != .unlocked {
+                // Clear data when locking the app
                 store.reviewRequests = []
                 store.selectedConversationId = nil
+            } else {
+                // Force refresh data when unlocking
+                // Use forceRefreshReviewRequests to bypass the 30-second debounce
+                // so fresh data loads immediately after unlock
+                Task {
+                    await store.forceRefreshReviewRequests()
+                }
             }
         }
         .onChange(of: scenePhase) { _, phase in
