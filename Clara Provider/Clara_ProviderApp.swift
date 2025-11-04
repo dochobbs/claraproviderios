@@ -8,6 +8,7 @@
 import SwiftUI
 import UserNotifications
 import UIKit
+import os.log
 
 @main
 struct Clara_ProviderApp: App {
@@ -15,8 +16,11 @@ struct Clara_ProviderApp: App {
     @StateObject private var store = ProviderConversationStore()
     @StateObject private var authManager = AuthenticationManager()
     @Environment(\.scenePhase) private var scenePhase
-    
+
     init() {
+        // Verify fonts are loaded on app launch
+        Font.debugListAvailableFonts()
+
         // Set search bar appearance globally (backup - also set in AppDelegate)
         let searchBarAppearance = UISearchBar.appearance()
         searchBarAppearance.searchTextField.backgroundColor = .white
@@ -26,7 +30,7 @@ struct Clara_ProviderApp: App {
         }
         searchBarAppearance.backgroundColor = .clear
         searchBarAppearance.barTintColor = .clear
-        
+
         // Also set UITextField appearance for search fields
         let textFieldAppearance = UITextField.appearance(whenContainedInInstancesOf: [UISearchBar.self])
         textFieldAppearance.backgroundColor = .white
@@ -56,16 +60,21 @@ struct Clara_ProviderApp: App {
             .environmentObject(authManager)
         }
         .onChange(of: authManager.state) { _, newState in
+            os_log("[Clara_ProviderApp] Auth state changed to: %{public}s", log: .default, type: .info, String(describing: newState))
             if newState != .unlocked {
                 // Clear data when locking the app
+                os_log("[Clara_ProviderApp] App locked, clearing cached data", log: .default, type: .info)
                 store.reviewRequests = []
                 store.selectedConversationId = nil
             } else {
                 // Force refresh data when unlocking
                 // Use forceRefreshReviewRequests to bypass the 30-second debounce
                 // so fresh data loads immediately after unlock
+                os_log("[Clara_ProviderApp] App unlocked, triggering force refresh", log: .default, type: .info)
                 Task {
+                    os_log("[Clara_ProviderApp] Calling forceRefreshReviewRequests", log: .default, type: .info)
                     await store.forceRefreshReviewRequests()
+                    os_log("[Clara_ProviderApp] forceRefreshReviewRequests completed", log: .default, type: .info)
                 }
             }
         }
