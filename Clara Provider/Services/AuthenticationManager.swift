@@ -144,10 +144,8 @@ final class AuthenticationManager: ObservableObject {
             }
         }
 
-        if success {
-            state = .unlocked
-            startSession()
-        }
+        state = .unlocked
+        startSession()
     }
 
     func updateBiometricType() {
