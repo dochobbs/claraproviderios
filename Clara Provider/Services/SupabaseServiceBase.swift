@@ -44,8 +44,16 @@ class SupabaseServiceBase {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         // Add API key to request
+        os_log("[SupabaseServiceBase] Setting API key header (length: %d)", log: .default, type: .debug, apiKey.count)
         request.setValue(apiKey, forHTTPHeaderField: "apikey")
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+
+        // Verify headers were set
+        if let apiKeyHeader = request.value(forHTTPHeaderField: "apikey") {
+            os_log("[SupabaseServiceBase] API key header set successfully (length: %d)", log: .default, type: .debug, apiKeyHeader.count)
+        } else {
+            os_log("[SupabaseServiceBase] ERROR: Failed to set API key header", log: .default, type: .error)
+        }
 
         return request
     }
@@ -73,7 +81,15 @@ class SupabaseServiceBase {
         retryAttempts: Int = 3
     ) async throws -> T {
         var lastError: Error?
-        
+
+        // Log request details for debugging
+        os_log("[SupabaseServiceBase] Making request to %{public}s", log: .default, type: .debug, request.url?.absoluteString ?? "unknown")
+        if let authHeader = request.value(forHTTPHeaderField: "Authorization") {
+            os_log("[SupabaseServiceBase] Authorization header present (length: %d)", log: .default, type: .debug, authHeader.count)
+        } else {
+            os_log("[SupabaseServiceBase] ERROR: No Authorization header in request", log: .default, type: .error)
+        }
+
         for attempt in 0..<retryAttempts {
             do {
                 let (data, response) = try await URLSession.shared.data(for: request)
@@ -148,7 +164,15 @@ class SupabaseServiceBase {
         retryAttempts: Int = 3
     ) async throws -> [T] {
         var lastError: Error?
-        
+
+        // Log request details for debugging
+        os_log("[SupabaseServiceBase] Making array request to %{public}s", log: .default, type: .debug, request.url?.absoluteString ?? "unknown")
+        if let authHeader = request.value(forHTTPHeaderField: "Authorization") {
+            os_log("[SupabaseServiceBase] Authorization header present (length: %d)", log: .default, type: .debug, authHeader.count)
+        } else {
+            os_log("[SupabaseServiceBase] ERROR: No Authorization header in array request", log: .default, type: .error)
+        }
+
         for attempt in 0..<retryAttempts {
             do {
                 let (data, response) = try await URLSession.shared.data(for: request)
