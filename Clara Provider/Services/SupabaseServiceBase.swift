@@ -30,9 +30,19 @@ class SupabaseServiceBase {
         // Get project URL from SecureConfig
         self.projectURL = SecureConfig.shared.supabaseProjectURL
 
-        // Use Supabase API key (hardcoded for now, should be moved to secure config in production)
-        // This is a public anon key and is safe to include in client-side code
-        self.apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtZnNhb2F3aG9tdXhhYmhkdWJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAzNTI3MjksImV4cCI6MjA3NTkyODcyOX0.X8zyqgFWNQ8Rk_UB096gaVTv709SAKI7iJc61UJn-L8"
+        // Get Supabase API key from Keychain via SecureConfig
+        // This retrieves the key stored securely in Keychain rather than hardcoding it
+        if let keychainKey = SecureConfig.shared.supabaseAPIKey {
+            self.apiKey = keychainKey
+            os_log("[SupabaseServiceBase] Loaded API key from Keychain", log: .default, type: .info)
+        } else {
+            // Fallback for first app launch: initialize with the anon key
+            // This should be replaced with a secure configuration source in production
+            let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtZnNhb2F3aG9tdXhhYmhkdWJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAzNTI3MjksImV4cCI6MjA3NTkyODcyOX0.X8zyqgFWNQ8Rk_UB096gaVTv709SAKI7iJc61UJn-L8"
+            SecureConfig.shared.initializeSupabaseKey(anonKey)
+            self.apiKey = anonKey
+            os_log("[SupabaseServiceBase] Initialized API key in Keychain on first launch", log: .default, type: .info)
+        }
     }
     
     // MARK: - Request Building Helpers

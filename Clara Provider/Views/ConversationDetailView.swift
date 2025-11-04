@@ -1,4 +1,5 @@
 import SwiftUI
+import os.log
 
 struct ConversationDetailView: View {
     @EnvironmentObject var store: ProviderConversationStore
@@ -128,7 +129,7 @@ struct ConversationDetailView: View {
     }
     
     private func loadConversationData() async {
-        print("🔍 Loading conversation data for: \(conversationId)")
+        os_log("[ConversationDetailView] Loading conversation data", log: .default, type: .debug)
 
         // Load conversation details first
         await store.loadConversationDetails(id: conversationId)
@@ -138,9 +139,9 @@ struct ConversationDetailView: View {
         await MainActor.run {
             if let detail = store.getConversationDetails(for: conversationId) {
                 conversationDetail = detail
-                print("✅ Found conversation details: \(detail.conversationTitle ?? "No title")")
+                os_log("[ConversationDetailView] Found conversation details", log: .default, type: .debug)
             } else {
-                print("⚠️ No conversation details found for: \(conversationId)")
+                os_log("[ConversationDetailView] No conversation details found", log: .default, type: .debug)
             }
         }
         
@@ -150,9 +151,9 @@ struct ConversationDetailView: View {
         }
         
         do {
-            print("🔍 Fetching follow-up messages for: \(conversationId)")
+            os_log("[ConversationDetailView] Fetching follow-up messages", log: .default, type: .debug)
             let followUpMessages = try await ProviderSupabaseService.shared.fetchFollowUpMessages(for: conversationId)
-            print("✅ Found \(followUpMessages.count) follow-up messages")
+            os_log("[ConversationDetailView] Found %d follow-up messages", log: .default, type: .debug, followUpMessages.count)
             
             // Convert follow-up messages to Message format
             let formatter = ISO8601DateFormatter()
@@ -196,11 +197,8 @@ struct ConversationDetailView: View {
             await MainActor.run { conversationReview = review }
             
         } catch {
+            os_log("[ConversationDetailView] Error loading conversation data: %{public}s", log: .default, type: .error, String(describing: error))
             await MainActor.run {
-                print("❌ Error loading conversation data: \(error)")
-                if let supabaseError = error as? SupabaseError {
-                    print("   Supabase error: \(supabaseError)")
-                }
                 isLoading = false
                 errorMessage = error.localizedDescription
             }

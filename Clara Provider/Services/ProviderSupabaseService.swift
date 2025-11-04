@@ -32,29 +32,22 @@ class ProviderSupabaseService: SupabaseServiceBase {
         }
         
         let request = createRequest(url: url, method: "GET")
-        
-        // Add debug logging
-        print("🔍 Fetching provider review requests from: \(urlString)")
-        
+
+        // Add debug logging (non-PHI only)
+        os_log("[ProviderSupabaseService] Fetching provider review requests", log: .default, type: .debug)
+
         do {
             let result = try await executeRequest(request, responseType: [ProviderReviewRequestDetail].self)
-            print("✅ Successfully fetched \(result.count) review requests")
-            
-            // Debug: Log first item to see what we got
+            os_log("[ProviderSupabaseService] Successfully fetched %d review requests", log: .default, type: .info, result.count)
+
+            // Debug: Log metadata only, never log PHI
             if let first = result.first {
-                print("📋 First item details:")
-                print("   Title: '\(first.conversationTitle ?? "nil")'")
-                print("   Child Name: '\(first.childName ?? "nil")'")
-                print("   Child Age: '\(first.childAge ?? "nil")'")
-                print("   Messages: \(first.conversationMessages?.count ?? 0)")
-                if let messages = first.conversationMessages, !messages.isEmpty {
-                    print("   First message: '\(messages.first?.content.prefix(50) ?? "nil")'")
-                }
+                os_log("[ProviderSupabaseService] Data loaded with %d messages", log: .default, type: .debug, first.conversationMessages?.count ?? 0)
             }
-            
+
             return result
         } catch {
-            print("❌ Error fetching review requests: \(error)")
+            os_log("[ProviderSupabaseService] Error fetching review requests: %{public}s", log: .default, type: .error, String(describing: error))
             throw error
         }
     }
@@ -96,45 +89,43 @@ class ProviderSupabaseService: SupabaseServiceBase {
         for (index, format) in formats.enumerated() {
             // Don't URL encode - UUIDs are valid in URLs, and encoding would break dashes
             let urlString = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(format)&select=id,user_id,conversation_id,conversation_title,child_name,child_age,child_dob,triage_outcome,conversation_summary,conversation_messages,provider_name,provider_response,provider_urgency,status,responded_at,created_at&limit=1"
-            
-            print("🔍 Fetching conversation details (attempt \(index + 1)/\(formats.count)) for: \(format)")
-            
+
+            os_log("[ProviderSupabaseService] Fetching conversation details (attempt %d/%d)", log: .default, type: .debug, index + 1, formats.count)
+
             guard let url = URL(string: urlString) else {
-                print("⚠️ Invalid URL for format: \(format)")
+                os_log("[ProviderSupabaseService] Invalid URL for format attempt", log: .default, type: .debug)
                 continue
             }
-            
+
             let request = createRequest(url: url, method: "GET")
-            
+
             do {
                 let (data, response) = try await URLSession.shared.data(for: request)
-                
+
                 guard let httpResponse = response as? HTTPURLResponse else {
                     throw SupabaseError.invalidResponse
                 }
-                
+
                 guard (200...299).contains(httpResponse.statusCode) else {
                     let errorMessage = String(data: data, encoding: .utf8) ?? "Unknown error"
-                    print("⚠️ HTTP \(httpResponse.statusCode) for format \(format): \(errorMessage)")
+                    os_log("[ProviderSupabaseService] HTTP %d for format attempt", log: .default, type: .debug, httpResponse.statusCode)
                     if index < formats.count - 1 {
                         continue // Try next format
                     }
                     throw SupabaseError.requestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
                 }
-                
+
                 let decoder = JSONDecoder()
                 let results = try decoder.decode([ProviderReviewRequestDetail].self, from: data)
-                print("✅ Found \(results.count) conversation(s) for ID: \(format)")
-                
+                os_log("[ProviderSupabaseService] Found %d conversation(s) for ID", log: .default, type: .info, results.count)
+
                 if let result = results.first {
-                    print("   Title: \(result.conversationTitle ?? "nil")")
-                    print("   Child Name: \(result.childName ?? "nil")")
-                    print("   Status: \(result.status ?? "nil")")
+                    os_log("[ProviderSupabaseService] Conversation loaded with status: %{public}s", log: .default, type: .debug, result.status ?? "unknown")
                 }
-                
+
                 return results.first
             } catch {
-                print("❌ Error with format \(format): \(error)")
+                os_log("[ProviderSupabaseService] Error with format attempt: %{public}s", log: .default, type: .error, String(describing: error))
                 if index < formats.count - 1 {
                     continue // Try next format
                 }
@@ -273,7 +264,7 @@ class ProviderSupabaseService: SupabaseServiceBase {
         }
         
         guard let request = reviewRequest else {
-            print("⚠️ Could not find review request for conversation \(conversationId)")
+            os_log("[ProviderSupabaseService] Could not find review request for conversation", log: .default, type: .debug)
             return
         }
         
@@ -303,9 +294,9 @@ class ProviderSupabaseService: SupabaseServiceBase {
         do {
             // Try to create the message (this might fail if follow_up_messages table doesn't exist or has different schema)
             try await executeRequest(messageRequest)
-            print("✅ Created follow-up message for patient")
+            os_log("[ProviderSupabaseService] Created follow-up message for patient", log: .default, type: .debug)
         } catch {
-            print("⚠️ Could not create follow-up message: \(error)")
+            os_log("[ProviderSupabaseService] Could not create follow-up message: %{public}s", log: .default, type: .debug, String(describing: error))
             // Don't throw - this is not critical, patient can still see response via polling
         }
     }
@@ -330,8 +321,8 @@ class ProviderSupabaseService: SupabaseServiceBase {
         // Each review request represents a visit/encounter for this patient
         // We need to fetch all fields that ProviderReviewRequestDetail requires
         let urlString = "\(projectURL)/rest/v1/provider_review_requests?user_id=eq.\(userId)&select=id,user_id,conversation_id,conversation_title,created_at,responded_at&order=created_at.desc"
-        
-        print("🔍 Fetching conversations/visits for user: \(userId)")
+
+        os_log("[ProviderSupabaseService] Fetching conversations/visits for user", log: .default, type: .debug)
         
         guard let url = URL(string: urlString) else {
             throw SupabaseError.invalidResponse
@@ -354,8 +345,8 @@ class ProviderSupabaseService: SupabaseServiceBase {
             
             // Decode as JSON array
             let jsonArray = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] ?? []
-            
-            print("✅ Fetched \(jsonArray.count) review requests for user \(userId)")
+
+            os_log("[ProviderSupabaseService] Fetched %d review requests for user", log: .default, type: .debug, jsonArray.count)
             
             // Deduplicate by conversation_id to get unique encounters
             var seenConversationIds = Set<String>()
@@ -385,10 +376,10 @@ class ProviderSupabaseService: SupabaseServiceBase {
                 summaries.append(summary)
             }
             
-            print("📋 Found \(summaries.count) unique conversations/visits for user \(userId)")
+            os_log("[ProviderSupabaseService] Found %d unique conversations/visits for user", log: .default, type: .debug, summaries.count)
             return summaries
         } catch {
-            print("❌ Error fetching conversations: \(error)")
+            os_log("[ProviderSupabaseService] Error fetching conversations: %{public}s", log: .default, type: .error, String(describing: error))
             throw error
         }
     }
@@ -437,16 +428,16 @@ class ProviderSupabaseService: SupabaseServiceBase {
                 updateRequest.httpBody = try JSONSerialization.data(withJSONObject: updatePayload)
                 
                 try await executeRequest(updateRequest)
-                print("✅ Updated device token for provider: \(userId)")
+                os_log("[ProviderSupabaseService] Updated device token for provider", log: .default, type: .debug)
             } else {
                 // Create new provider record
                 let createUrlString = "\(projectURL)/rest/v1/providers"
                 guard let createUrl = URL(string: createUrlString) else {
                     throw SupabaseError.invalidResponse
                 }
-                
+
                 var createRequest = createPostRequest(url: createUrl)
-                
+
                 let createPayload: [String: Any] = [
                     "user_id": userId,
                     "device_token": deviceToken,
@@ -454,14 +445,14 @@ class ProviderSupabaseService: SupabaseServiceBase {
                     "created_at": now,
                     "updated_at": now
                 ]
-                
+
                 createRequest.httpBody = try JSONSerialization.data(withJSONObject: createPayload)
-                
+
                 try await executeRequest(createRequest)
-                print("✅ Registered new device token for provider: \(userId)")
+                os_log("[ProviderSupabaseService] Registered new device token for provider", log: .default, type: .debug)
             }
         } catch {
-            print("⚠️ Error registering device token: \(error)")
+            os_log("[ProviderSupabaseService] Error registering device token: %{public}s", log: .default, type: .error, String(describing: error))
             // Don't throw - this is not critical for app functionality
             // The webhook can still work if tokens are added manually
         }
