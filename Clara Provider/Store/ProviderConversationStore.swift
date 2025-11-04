@@ -15,7 +15,13 @@ class ProviderConversationStore: ObservableObject {
     // Auto-refresh timer
     private var refreshTimer: Timer?
     private let refreshInterval: TimeInterval = 60 // 60 seconds
-    
+
+    // CRITICAL FIX: Track active refresh task to prevent accumulation
+    // Bug: Auto-refresh timer created new Tasks without cancelling previous ones
+    // Result: Multiple fetch operations running simultaneously, draining battery and network resources
+    // Solution: Store task reference and cancel before starting new refresh
+    private var activeRefreshTask: Task<Void, Never>?
+
     private let supabaseService = ProviderSupabaseService.shared
     
     init() {
@@ -336,22 +342,35 @@ class ProviderConversationStore: ObservableObject {
     }
     
     // MARK: - Auto Refresh
-    
+
     /// Start automatic refresh timer
     func startAutoRefresh() {
         stopAutoRefresh()
-        
+
         refreshTimer = Timer.scheduledTimer(withTimeInterval: refreshInterval, repeats: true) { [weak self] _ in
-            Task {
+            // Cancel any existing refresh task before starting new one
+            // This prevents task accumulation when refresh timer fires faster than
+            // the previous refresh completes
+            self?.activeRefreshTask?.cancel()
+
+            // Create new refresh task and store reference for lifecycle management
+            self?.activeRefreshTask = Task {
                 await self?.loadReviewRequests()
             }
         }
     }
-    
+
     /// Stop automatic refresh timer
     func stopAutoRefresh() {
         refreshTimer?.invalidate()
         refreshTimer = nil
+
+        // CRITICAL FIX: Cancel active refresh task to prevent orphaned tasks
+        // Bug: Task continued running even after timer was stopped
+        // Result: Background refresh tasks persisted after app backgrounded/closed
+        // Solution: Explicitly cancel task when stopping auto-refresh
+        activeRefreshTask?.cancel()
+        activeRefreshTask = nil
     }
     
     /// Manually refresh review requests

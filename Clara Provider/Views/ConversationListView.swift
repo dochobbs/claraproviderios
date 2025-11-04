@@ -5,6 +5,7 @@ struct ConversationListView: View {
     @State private var selectedStatus: String? = "pending"
     @State private var searchText: String = ""
     @Environment(\.colorScheme) var colorScheme
+    @State private var notificationObserver: NSObjectProtocol?
     
     var filteredRequests: [ProviderReviewRequestDetail] {
         var requests = store.reviewRequests
@@ -157,9 +158,20 @@ struct ConversationListView: View {
                     await store.loadReviewRequests()
                 }
             }
-            
-            // Listen for push notification to open conversation
-            NotificationCenter.default.addObserver(
+
+            // CRITICAL FIX: Properly manage NotificationCenter observer lifecycle
+            // Bug: Observer was added in onAppear but never removed
+            // Result: Multiple observers accumulated after each navigation cycle, causing
+            // push notifications to fire multiple times and draining battery/memory
+            // Fix: Store observer reference and remove it in onDisappear
+
+            // Remove any existing observer first to prevent duplicates
+            if let existingObserver = notificationObserver {
+                NotificationCenter.default.removeObserver(existingObserver)
+            }
+
+            // Add observer and store reference for cleanup
+            notificationObserver = NotificationCenter.default.addObserver(
                 forName: NSNotification.Name("OpenConversationFromPush"),
                 object: nil,
                 queue: .main
@@ -167,6 +179,13 @@ struct ConversationListView: View {
                 if let conversationId = notification.userInfo?["conversationId"] as? UUID {
                     store.selectedConversationId = conversationId
                 }
+            }
+        }
+        .onDisappear {
+            // Remove observer when view disappears to prevent memory leak
+            if let observer = notificationObserver {
+                NotificationCenter.default.removeObserver(observer)
+                notificationObserver = nil
             }
         }
     }
