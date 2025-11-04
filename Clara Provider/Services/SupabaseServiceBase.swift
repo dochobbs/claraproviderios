@@ -68,10 +68,11 @@ class SupabaseServiceBase {
 
         // Add API key from secure storage
         if let apiKey = apiKey {
+            os_log("[SupabaseServiceBase] Adding API key to request (length: %d)", log: .default, type: .debug, apiKey.count)
             request.setValue(apiKey, forHTTPHeaderField: "apikey")
             request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         } else {
-            os_log("[SupabaseServiceBase] Warning: API key not available from Keychain", log: .default, type: .default)
+            os_log("[SupabaseServiceBase] ERROR: API key is nil - cannot add authentication header to request", log: .default, type: .error)
         }
 
         return request
