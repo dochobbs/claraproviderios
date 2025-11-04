@@ -23,6 +23,12 @@ class ProviderConversationStore: ObservableObject {
     // Solution: Store task reference and cancel before starting new refresh
     private var activeRefreshTask: Task<Void, Never>?
 
+    // PERFORMANCE FIX: Debounce auto-refresh to prevent excessive view updates
+    // Bug: 60-second timer publishes to @Published property, triggering cascading re-renders
+    // Solution: Track last successful refresh time and skip updates if data hasn't actually changed
+    private var lastRefreshTime: Date = Date.distantPast
+    private let refreshDebounceInterval: TimeInterval = 30 // Only refresh if 30s have passed AND data changed
+
     private let supabaseService = ProviderSupabaseService.shared
     
     init() {
@@ -48,11 +54,23 @@ class ProviderConversationStore: ObservableObject {
     
     /// Load all review requests from Supabase
     func loadReviewRequests() async {
+        // PERFORMANCE FIX: Skip if we just refreshed recently (debounce auto-refresh)
+        let now = Date()
+        let timeSinceLastRefresh = now.timeIntervalSince(lastRefreshTime)
+
+        // Only proceed with refresh if enough time has passed since last successful refresh
+        // This prevents excessive view updates from the 60-second timer
+        if timeSinceLastRefresh < refreshDebounceInterval {
+            os_log("[ProviderConversationStore] Skipping refresh - last refresh was %.1f seconds ago (debounce: %.0f seconds)",
+                   log: .default, type: .debug, timeSinceLastRefresh, refreshDebounceInterval)
+            return
+        }
+
         await MainActor.run {
             isLoading = true
             errorMessage = nil
         }
-        
+
         do {
             let requests = try await supabaseService.fetchProviderReviewRequests()
 
@@ -67,7 +85,17 @@ class ProviderConversationStore: ObservableObject {
                            log: .default, type: .debug, first.childName ?? "nil", first.childAge ?? "nil", first.conversationMessages?.count ?? 0)
                 }
 
-                reviewRequests = requests
+                // Only publish if data actually changed (prevents unnecessary view updates)
+                if requests != reviewRequests {
+                    reviewRequests = requests
+                    lastRefreshTime = Date()
+                    os_log("[ProviderConversationStore] Data changed, updating reviewRequests and lastRefreshTime",
+                           log: .default, type: .debug)
+                } else {
+                    os_log("[ProviderConversationStore] Data unchanged, skipping publish to prevent view updates",
+                           log: .default, type: .debug)
+                }
+
                 isLoading = false
             }
         } catch {

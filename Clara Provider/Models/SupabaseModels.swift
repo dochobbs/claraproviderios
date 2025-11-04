@@ -1,11 +1,11 @@
 import Foundation
 
-struct ConversationMessage: Codable {
+struct ConversationMessage: Codable, Equatable {
     let content: String
     let isFromUser: Bool
     let timestamp: String
     let imageURL: String?
-    
+
     enum CodingKeys: String, CodingKey {
         case content
         case isFromUser = "is_from_user"

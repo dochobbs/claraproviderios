@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Provider Review Request Model (from Supabase)
 // This represents a provider review request as stored in Supabase
-struct ProviderReviewRequestDetail: Codable, Identifiable {
+struct ProviderReviewRequestDetail: Codable, Identifiable, Equatable {
     let id: String
     let userId: String
     let conversationId: String
