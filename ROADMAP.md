@@ -30,10 +30,12 @@
    - UX: Toast with undo button during delay window
    - Message goes back to editable state if undone
 
-2. **EPIC: End-to-end messaging with parents - roadmap & architecture planning**
-   - Details TBD
-   - Secure messaging between provider and parent through app
-   - Need to define: encryption, delivery mechanism, notifications
+2. **FEATURE: Add quick message parent button - redirect to external SMS/messaging**
+   - Button in conversation detail toolbar
+   - Opens Google Voice, WhatsApp, or SMS with parent phone number pre-filled
+   - Provider handles messaging outside app
+   - Store parent phone number in conversation data
+   - Simpler than in-app E2E messaging (outsource to proven services)
 
 3. **FEATURE: Add follow-up request functionality**
    - Provider can push follow-up request to Clara from conversation
