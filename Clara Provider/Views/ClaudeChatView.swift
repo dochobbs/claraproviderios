@@ -156,7 +156,10 @@ struct ClaudeChatView: View {
                     }
                 }
             }
-            .alert("Error", isPresented: .constant(errorMessage != nil)) {
+            .alert("Error", isPresented: .init(
+                get: { errorMessage != nil },
+                set: { if !$0 { errorMessage = nil } }
+            )) {
                 Button("OK") {
                     errorMessage = nil
                 }

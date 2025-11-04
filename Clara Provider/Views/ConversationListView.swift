@@ -137,7 +137,10 @@ struct ConversationListView: View {
             for: .navigationBar
         )
         .toolbarBackground(.visible, for: .navigationBar)
-        .alert("Error", isPresented: .constant(store.errorMessage != nil)) {
+        .alert("Error", isPresented: .init(
+            get: { store.errorMessage != nil },
+            set: { if !$0 { store.errorMessage = nil } }
+        )) {
             Button("OK") {
                 store.errorMessage = nil
             }
