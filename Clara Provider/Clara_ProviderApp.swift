@@ -13,6 +13,8 @@ import UIKit
 struct Clara_ProviderApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var store = ProviderConversationStore()
+    @StateObject private var authManager = AuthenticationManager()
+    @Environment(\.scenePhase) private var scenePhase
     
     init() {
         // Set search bar appearance globally (backup - also set in AppDelegate)
@@ -36,15 +38,33 @@ struct Clara_ProviderApp: App {
     
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environmentObject(store)
-                .background(Color.paperBackground.ignoresSafeArea())
-                .onAppear {
-                    // Load initial review requests
-                    Task {
-                        await store.loadReviewRequests()
-                    }
+            Group {
+                switch authManager.state {
+                case .unlocked:
+                    ContentView()
+                        .environmentObject(store)
+                        .background(Color.paperBackground.ignoresSafeArea())
+                        .onAppear {
+                            Task {
+                                await store.loadReviewRequests()
+                            }
+                        }
+                case .needsSetup, .locked:
+                    AuthenticationView()
                 }
+            }
+            .environmentObject(authManager)
+        }
+        .onChange(of: authManager.state) { _, newState in
+            if newState != .unlocked {
+                store.reviewRequests = []
+                store.selectedConversationId = nil
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background {
+                authManager.lock()
+            }
         }
     }
 }

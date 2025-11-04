@@ -21,6 +21,7 @@ struct PatientProfileDestination: Hashable {
 
 struct ContentView: View {
     @EnvironmentObject var store: ProviderConversationStore
+    @EnvironmentObject var authManager: AuthenticationManager
     @Environment(\.colorScheme) var colorScheme
     @State private var isMenuOpen: Bool = false
     @State private var path = NavigationPath()
@@ -63,6 +64,23 @@ struct ContentView: View {
                                     .foregroundColor(.primaryCoral)
                             }
                             .accessibilityLabel("Open menu")
+                        }
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button(action: {
+                                HapticFeedback.light()
+                                withAnimation {
+                                    isMenuOpen = false
+                                    path = NavigationPath()
+                                }
+                                Task { @MainActor in
+                                    authManager.lock()
+                                }
+                            }) {
+                                Image(systemName: "lock.fill")
+                                    .imageScale(.medium)
+                                    .foregroundColor(.primaryCoral)
+                            }
+                            .accessibilityLabel("Lock app")
                         }
                     }
                     .navigationDestination(for: PatientListItem.self) { patient in
