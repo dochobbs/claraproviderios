@@ -223,11 +223,21 @@ struct RecentActivitySection: View {
                     .padding()
             } else {
                 ForEach(recentReviews, id: \.id) { request in
-                    NavigationLink(
-                        destination: ConversationDetailView(conversationId: UUID(uuidString: request.conversationId) ?? UUID())
-                            .environmentObject(store)
-                    ) {
+                    // Validate UUID before navigation - never fallback to random UUID (HIPAA compliance)
+                    // If UUID parsing fails, skip this conversation rather than open wrong patient's data
+                    if let conversationUUID = UUID(uuidString: request.conversationId) {
+                        NavigationLink(
+                            destination: ConversationDetailView(conversationId: conversationUUID)
+                                .environmentObject(store)
+                        ) {
+                            RecentActivityRow(request: request)
+                        }
+                    } else {
+                        // Log error and show disabled state instead of creating random UUID
                         RecentActivityRow(request: request)
+                            .opacity(0.5)
+                            .disabled(true)
+                            .help("Invalid conversation ID")
                     }
                 }
             }

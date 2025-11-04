@@ -1,4 +1,5 @@
 import Foundation
+import os.log
 
 // MARK: - Provider Supabase Service
 // Extends SupabaseServiceBase with provider-specific methods for reviewing conversations and messaging patients

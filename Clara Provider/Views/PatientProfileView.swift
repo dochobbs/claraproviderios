@@ -186,13 +186,23 @@ struct ConversationHistorySection: View {
                     .padding()
             } else {
                 ForEach(conversations.prefix(5), id: \.id) { request in
-                    NavigationLink(
-                        value: UUID(uuidString: request.conversationId) ?? UUID()
-                    ) {
+                    // Validate UUID before navigation - never fallback to random UUID (HIPAA compliance)
+                    // If UUID parsing fails, skip this conversation rather than open wrong patient's data
+                    if let conversationUUID = UUID(uuidString: request.conversationId) {
+                        NavigationLink(
+                            value: conversationUUID
+                        ) {
+                            ConversationHistoryRow(request: request)
+                        }
+                    } else {
+                        // Log error and show disabled state instead of creating random UUID
                         ConversationHistoryRow(request: request)
+                            .opacity(0.5)
+                            .disabled(true)
+                            .help("Invalid conversation ID")
                     }
                 }
-                
+
                 if conversations.count > 5 {
                     Text("And \(conversations.count - 5) more conversations...")
                         .font(.rethinkSans(12, relativeTo: .caption))
