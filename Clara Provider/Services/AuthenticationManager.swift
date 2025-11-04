@@ -227,7 +227,7 @@ final class AuthenticationManager: ObservableObject {
         // Each password gets unique salt, preventing rainbow table attacks
         var salt = [UInt8](repeating: 0, count: 16)
         let saltResult = SecRandomCopyBytes(kSecRandomDefault, salt.count, &salt)
-        guard saltResult == errSecSuccess else {
+        if saltResult != errSecSuccess {
             // Fallback: If secure random fails, use timestamp-based salt (not ideal but acceptable)
             let timestamp = Date().timeIntervalSince1970
             let bytes = withUnsafeBytes(of: timestamp) { Array($0) }
