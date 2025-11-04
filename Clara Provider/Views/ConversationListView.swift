@@ -76,12 +76,30 @@ struct ConversationListView: View {
             } else {
                 List {
                     ForEach(filteredRequests, id: \.id) { request in
-                        NavigationLink(
-                            value: UUID(uuidString: request.conversationId) ?? UUID()
-                        ) {
-                            ConversationRowView(request: request)
+                        // CRITICAL FIX: Validate UUID format before navigation
+                        // Creating a random UUID if parsing fails leads to opening wrong conversation
+                        // This was a HIPAA violation risk - provider could see wrong patient's data
+                        if let validUUID = UUID(uuidString: request.conversationId) {
+                            NavigationLink(value: validUUID) {
+                                ConversationRowView(request: request)
+                            }
+                            .listRowBackground(Color.adaptiveBackground(for: colorScheme))
+                        } else {
+                            // Data integrity issue - show error instead of silently opening wrong conversation
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.red)
+                                VStack(alignment: .leading) {
+                                    Text("Invalid Conversation")
+                                        .font(.rethinkSansBold(16, relativeTo: .body))
+                                    Text("Conversation ID format is invalid")
+                                        .font(.rethinkSans(13, relativeTo: .footnote))
+                                        .foregroundColor(.secondary)
+                                }
+                                Spacer()
+                            }
+                            .listRowBackground(Color.red.opacity(0.1))
                         }
-                        .listRowBackground(Color.adaptiveBackground(for: colorScheme))
                     }
                 }
                 .scrollContentBackground(.hidden)

@@ -1,4 +1,5 @@
 import Foundation
+import os.log
 
 // MARK: - Supabase Errors
 enum SupabaseError: Error, LocalizedError {
@@ -22,10 +23,23 @@ enum SupabaseError: Error, LocalizedError {
 // Base class with common Supabase functionality that can be shared between patient and provider apps
 class SupabaseServiceBase {
     // Base configuration
-    let projectURL = "https://dmfsaoawhomuxabhdubw.supabase.co"
-    let apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtZnNhb2F3aG9tdXhhYmhkdWJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAzNTI3MjksImV4cCI6MjA3NTkyODcyOX0.X8zyqgFWNQ8Rk_UB096gaVTv709SAKI7iJc61UJn-L8"
-    
-    init() {}
+    let projectURL: String
+    let apiKey: String?
+
+    init() {
+        // Get project URL from SecureConfig
+        self.projectURL = SecureConfig.shared.supabaseProjectURL
+
+        // Get API key from Keychain via SecureConfig
+        self.apiKey = SecureConfig.shared.supabaseAPIKey
+
+        // If API key is not set, initialize with default (should only happen on first launch)
+        // In production, this should be injected via secure deployment process
+        if self.apiKey == nil {
+            let defaultKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtZnNhb2F3aG9tdXhhYmhkdWJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAzNTI3MjksImV4cCI6MjA3NTkyODcyOX0.X8zyqgFWNQ8Rk_UB096gaVTv709SAKI7iJc61UJn-L8"
+            SecureConfig.shared.initializeSupabaseKey(defaultKey)
+        }
+    }
     
     // MARK: - Request Building Helpers
     
@@ -34,8 +48,15 @@ class SupabaseServiceBase {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(apiKey, forHTTPHeaderField: "apikey")
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+
+        // Add API key from secure storage
+        if let apiKey = apiKey {
+            request.setValue(apiKey, forHTTPHeaderField: "apikey")
+            request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        } else {
+            os_log("[SupabaseServiceBase] Warning: API key not available from Keychain", log: .default, type: .warning)
+        }
+
         return request
     }
     

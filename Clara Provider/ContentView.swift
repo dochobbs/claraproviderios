@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import os.log
 
 private struct PatientListItem: Identifiable, Hashable {
     let id: UUID        // representative conversation UUID for routing
@@ -37,8 +38,16 @@ struct ContentView: View {
             if !seen.contains(key) {
                 seen.insert(key)
                 let name = (req.childName?.trimmingCharacters(in: .whitespacesAndNewlines)).flatMap { $0.isEmpty ? nil : $0 } ?? "Patient \(items.count + 1)"
-                let id = UUID(uuidString: req.conversationId) ?? UUID()
-                items.append(PatientListItem(id: id, userId: req.userId, name: name))
+
+                // CRITICAL FIX: Validate UUID format before adding to list
+                // Creating a random UUID if parsing fails leads to opening wrong patient's data
+                // This was a HIPAA violation risk - provider could see wrong patient's medical history
+                if let validUUID = UUID(uuidString: req.conversationId) {
+                    items.append(PatientListItem(id: validUUID, userId: req.userId, name: name))
+                } else {
+                    // Log data integrity issue but don't add invalid entry
+                    os_log("[ContentView] Invalid conversation UUID format for patient: %{public}s (ID: %{public}s)", log: .default, type: .error, name, req.conversationId)
+                }
             }
         }
         // Sort alphabetically by name for a nicer menu
