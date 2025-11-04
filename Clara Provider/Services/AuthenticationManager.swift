@@ -317,16 +317,19 @@ final class AuthenticationManager: ObservableObject {
         sessionTimer = nil
         timerScheduleTime = nil
 
-        guard let unlockDate = lastUnlockedAt else {
+        // Check if we have a valid unlock date
+        if lastUnlockedAt == nil {
             return
         }
 
-        let elapsed = Date().timeIntervalSince(unlockDate)
+        let elapsed = Date().timeIntervalSince(lastUnlockedAt!)
         let remaining = maxSessionDuration - elapsed
 
         if remaining <= 0 {
-            // Session already expired, lock immediately
-            lock()
+            // Session already expired, trigger lock on main thread
+            DispatchQueue.main.async { [weak self] in
+                self?.lock()
+            }
             return
         }
 
