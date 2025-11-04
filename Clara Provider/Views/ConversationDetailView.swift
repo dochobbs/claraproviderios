@@ -12,11 +12,8 @@ struct ConversationDetailView: View {
     @State private var selectedResponse: ProviderResponseType = .agree
     @State private var isSubmitting = false
     @State private var conversationReview: ProviderReviewRequestDetail? = nil
+    @State private var conversationDetail: ProviderReviewRequestDetail? = nil
     @State private var includeProviderName: Bool = false
-    
-    var conversationDetail: ProviderReviewRequestDetail? {
-        store.getConversationDetails(for: conversationId)
-    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -132,15 +129,19 @@ struct ConversationDetailView: View {
     
     private func loadConversationData() async {
         print("🔍 Loading conversation data for: \(conversationId)")
-        
+
         // Load conversation details first
         await store.loadConversationDetails(id: conversationId)
-        
-        // Check if we have details
-        if let detail = store.getConversationDetails(for: conversationId) {
-            print("✅ Found conversation details: \(detail.conversationTitle ?? "No title")")
-        } else {
-            print("⚠️ No conversation details found for: \(conversationId)")
+
+        // Cache conversation detail in state to avoid repeated store lookups
+        // This prevents circular dependencies and reduces view recalculations
+        await MainActor.run {
+            if let detail = store.getConversationDetails(for: conversationId) {
+                conversationDetail = detail
+                print("✅ Found conversation details: \(detail.conversationTitle ?? "No title")")
+            } else {
+                print("⚠️ No conversation details found for: \(conversationId)")
+            }
         }
         
         // Load messages from Supabase
