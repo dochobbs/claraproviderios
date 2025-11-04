@@ -116,28 +116,59 @@ final class AuthenticationManager: ObservableObject {
     }
 
     func configurePassword(newPassword: String, confirmPassword: String) throws {
-        guard newPassword == confirmPassword else {
-            throw AuthenticationError.passwordMismatch
-        }
+        // CRITICAL FIX: Enhanced input validation for passwords
+        // Prevent weak or invalid passwords from being stored
 
-        guard newPassword.count >= 8 else {
+        // Validate passwords are not empty
+        let trimmedPassword = newPassword.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedConfirm = confirmPassword.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !trimmedPassword.isEmpty else {
             throw AuthenticationError.passwordTooShort
         }
 
-        let hash = hashPassword(newPassword)
+        // Check password length (minimum 8 characters)
+        guard trimmedPassword.count >= 8 else {
+            throw AuthenticationError.passwordTooShort
+        }
+
+        // Check password max length (prevent DoS from extremely long strings)
+        guard trimmedPassword.count <= 512 else {
+            throw AuthenticationError.passwordTooShort // Reuse as "invalid"
+        }
+
+        // Verify passwords match exactly
+        guard trimmedPassword == trimmedConfirm else {
+            throw AuthenticationError.passwordMismatch
+        }
+
+        let hash = hashPassword(trimmedPassword)
         try storePasswordHash(hash)
         state = .unlocked
         startSession()
     }
 
     func unlock(with password: String) throws {
+        // CRITICAL FIX: Validate input password
+        // Empty password attempt or excessively long input should be rejected
+        let trimmedPassword = password.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !trimmedPassword.isEmpty else {
+            throw AuthenticationError.invalidPassword
+        }
+
+        // Prevent DoS from extremely long password input
+        guard trimmedPassword.count <= 512 else {
+            throw AuthenticationError.invalidPassword
+        }
+
         guard let storedHash = fetchStoredPasswordHash() else {
             throw AuthenticationError.passwordNotSet
         }
 
         // CRITICAL FIX: Use proper password verification with PBKDF2
         // Use verifyPassword() which extracts salt and compares hashes, not hashPassword()
-        guard verifyPassword(password, against: storedHash) else {
+        guard verifyPassword(trimmedPassword, against: storedHash) else {
             throw AuthenticationError.invalidPassword
         }
 

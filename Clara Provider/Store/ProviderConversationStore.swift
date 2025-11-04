@@ -212,16 +212,39 @@ class ProviderConversationStore: ObservableObject {
         content: String,
         urgency: String = "routine"
     ) async throws {
+        // CRITICAL FIX: Input validation for messages
+        // Prevent empty, whitespace-only, or excessively long messages
+        let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Validate message is not empty
+        guard !trimmedContent.isEmpty else {
+            throw NSError(domain: "ProviderConversationStore", code: -1,
+                         userInfo: [NSLocalizedDescriptionKey: "Message cannot be empty"])
+        }
+
+        // Validate message length (prevent DoS and database issues)
+        guard trimmedContent.count <= 5000 else {
+            throw NSError(domain: "ProviderConversationStore", code: -2,
+                         userInfo: [NSLocalizedDescriptionKey: "Message is too long (max 5000 characters)"])
+        }
+
+        // Validate urgency is one of allowed values
+        let validUrgencies = ["routine", "urgent", "escalated"]
+        guard validUrgencies.contains(urgency.lowercased()) else {
+            throw NSError(domain: "ProviderConversationStore", code: -3,
+                         userInfo: [NSLocalizedDescriptionKey: "Invalid urgency level"])
+        }
+
         await MainActor.run {
             isLoading = true
             errorMessage = nil
         }
-        
+
         do {
             _ = try await supabaseService.sendProviderMessage(
                 conversationId: conversationId,
-                message: content,
-                urgency: urgency
+                message: trimmedContent,
+                urgency: urgency.lowercased()
             )
             
             // Refresh conversation details after sending message
@@ -299,17 +322,51 @@ class ProviderConversationStore: ObservableObject {
         name: String?,
         urgency: String?
     ) async throws {
+        // CRITICAL FIX: Input validation for provider response
+        // Prevent empty responses and validate input lengths
+
+        // Validate response is not empty
+        let trimmedResponse = response.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedResponse.isEmpty else {
+            throw NSError(domain: "ProviderConversationStore", code: -1,
+                         userInfo: [NSLocalizedDescriptionKey: "Response cannot be empty"])
+        }
+
+        // Validate response length
+        guard trimmedResponse.count <= 5000 else {
+            throw NSError(domain: "ProviderConversationStore", code: -2,
+                         userInfo: [NSLocalizedDescriptionKey: "Response is too long (max 5000 characters)"])
+        }
+
+        // Validate provider name if provided
+        let trimmedName = name?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let providerName = trimmedName, !providerName.isEmpty {
+            guard providerName.count <= 255 else {
+                throw NSError(domain: "ProviderConversationStore", code: -4,
+                             userInfo: [NSLocalizedDescriptionKey: "Provider name is too long"])
+            }
+        }
+
+        // Validate urgency if provided
+        if let urg = urgency {
+            let validUrgencies = ["routine", "urgent", "escalated"]
+            guard validUrgencies.contains(urg.lowercased()) else {
+                throw NSError(domain: "ProviderConversationStore", code: -3,
+                             userInfo: [NSLocalizedDescriptionKey: "Invalid urgency level"])
+            }
+        }
+
         await MainActor.run {
             isLoading = true
             errorMessage = nil
         }
-        
+
         do {
             try await supabaseService.addProviderResponse(
                 id: id,
-                response: response,
-                name: name,
-                urgency: urgency
+                response: trimmedResponse,
+                name: trimmedName,
+                urgency: urgency?.lowercased()
             )
             
             // Clear cache for this conversation to force refresh
