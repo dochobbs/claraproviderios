@@ -61,7 +61,7 @@ class SupabaseServiceBase {
             request.setValue(apiKey, forHTTPHeaderField: "apikey")
             request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         } else {
-            os_log("[SupabaseServiceBase] Warning: API key not available from Keychain", log: .default, type: .warning)
+            os_log("[SupabaseServiceBase] Warning: API key not available from Keychain", log: .default, type: .default)
         }
 
         return request
