@@ -32,11 +32,10 @@ class SecureConfig {
     /// Store initial Supabase API key (should only be called during app setup/deployment)
     /// In production, this would be loaded from a secure configuration source
     func initializeSupabaseKey(_ key: String) {
-        // Only set if not already in Keychain
-        if supabaseAPIKey == nil {
-            supabaseAPIKey = key
-            os_log("[SecureConfig] Supabase API key initialized in Keychain", log: .default, type: .info)
-        }
+        // Always set the key - this ensures it's in Keychain even if retrieval fails
+        // (Keychain retrieval might fail on first app launch due to timing)
+        supabaseAPIKey = key
+        os_log("[SecureConfig] Supabase API key initialized in Keychain", log: .default, type: .info)
     }
 
     // MARK: - Keychain Operations

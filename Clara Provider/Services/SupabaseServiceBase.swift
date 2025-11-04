@@ -33,19 +33,29 @@ class SupabaseServiceBase {
         // FIX: Store the default key in Keychain first if needed, then read back
         // This ensures the key is always in Keychain and available for retrieval
         var retrievedKey = SecureConfig.shared.supabaseAPIKey
+        os_log("[SupabaseServiceBase] Retrieved API key from Keychain (nil: %d)", log: .default, type: .debug, retrievedKey == nil ? 1 : 0)
 
         // If API key is not set, initialize with default (should only happen on first launch)
         // In production, this should be injected via secure deployment process
         if retrievedKey == nil {
+            os_log("[SupabaseServiceBase] API key is nil, initializing with default", log: .default, type: .info)
             let defaultKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtZnNhb2F3aG9tdXhhYmhkdWJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAzNTI3MjksImV4cCI6MjA3NTkyODcyOX0.X8zyqgFWNQ8Rk_UB096gaVTv709SAKI7iJc61UJn-L8"
             SecureConfig.shared.initializeSupabaseKey(defaultKey)
             // Read back the key we just stored
             retrievedKey = SecureConfig.shared.supabaseAPIKey
-            os_log("[SupabaseServiceBase] Initialized Supabase API key in Keychain", log: .default, type: .info)
+            os_log("[SupabaseServiceBase] After initialization, API key is nil: %d", log: .default, type: .debug, retrievedKey == nil ? 1 : 0)
+            if retrievedKey != nil {
+                os_log("[SupabaseServiceBase] Successfully initialized Supabase API key in Keychain", log: .default, type: .info)
+            } else {
+                os_log("[SupabaseServiceBase] ERROR: Failed to retrieve API key after initialization", log: .default, type: .error)
+            }
+        } else {
+            os_log("[SupabaseServiceBase] Using existing API key from Keychain", log: .default, type: .info)
         }
 
         // Store the retrieved key
         self.apiKey = retrievedKey
+        os_log("[SupabaseServiceBase] Init complete - apiKey is nil: %d", log: .default, type: .debug, self.apiKey == nil ? 1 : 0)
     }
     
     // MARK: - Request Building Helpers
