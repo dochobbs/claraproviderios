@@ -51,19 +51,27 @@ class ProviderConversationStore: ObservableObject {
     }
     
     // MARK: - Load Review Requests
-    
+
     /// Load all review requests from Supabase
-    func loadReviewRequests() async {
+    /// - Parameter bypassDebounce: If true, ignore the 30-second debounce. Used for forced refresh on unlock.
+    func loadReviewRequests(bypassDebounce: Bool = false) async {
         // PERFORMANCE FIX: Skip if we just refreshed recently (debounce auto-refresh)
+        // Exception: bypassDebounce=true allows forced refreshes (e.g., on app unlock)
         let now = Date()
         let timeSinceLastRefresh = now.timeIntervalSince(lastRefreshTime)
 
         // Only proceed with refresh if enough time has passed since last successful refresh
         // This prevents excessive view updates from the 60-second timer
-        if timeSinceLastRefresh < refreshDebounceInterval {
+        // BUT: If bypassDebounce is true, skip this check (used for forced unlock refresh)
+        if !bypassDebounce && timeSinceLastRefresh < refreshDebounceInterval {
             os_log("[ProviderConversationStore] Skipping refresh - last refresh was %.1f seconds ago (debounce: %.0f seconds)",
                    log: .default, type: .debug, timeSinceLastRefresh, refreshDebounceInterval)
             return
+        }
+
+        if bypassDebounce {
+            os_log("[ProviderConversationStore] Forcing refresh (bypassDebounce=true) - ignoring debounce interval",
+                   log: .default, type: .info)
         }
 
         await MainActor.run {
@@ -432,11 +440,11 @@ class ProviderConversationStore: ObservableObject {
     /// Force refresh review requests regardless of debounce timer
     /// Used when app unlocks or when we need fresh data immediately
     func forceRefreshReviewRequests() async {
-        // Bypass debounce by resetting the last refresh time
-        lastRefreshTime = Date.distantPast
-
-        // Now load with fresh data
-        await loadReviewRequests()
+        // FIX: Force refresh on unlock by bypassing the 30-second debounce
+        // This is called when the app unlocks so the user sees fresh data immediately
+        // We pass bypassDebounce=true to skip the debounce check in loadReviewRequests()
+        os_log("[ProviderConversationStore] forceRefreshReviewRequests() - bypassing debounce for unlock", log: .default, type: .info)
+        await loadReviewRequests(bypassDebounce: true)
     }
     
     // MARK: - Auto Refresh
