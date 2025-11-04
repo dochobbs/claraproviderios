@@ -94,17 +94,17 @@ class SupabaseServiceBase {
                 
                 guard (200...299).contains(httpResponse.statusCode) else {
                     let errorMessage = String(data: data, encoding: .utf8) ?? "Unknown error"
-                    print("❌ HTTP Error \(httpResponse.statusCode): \(errorMessage)")
+                    os_log("[SupabaseServiceBase] HTTP Error %d: %{public}s", log: .default, type: .error, httpResponse.statusCode, errorMessage)
                     throw SupabaseError.requestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
                 }
-                
+
                 // Log raw response for debugging
                 if let responseString = String(data: data, encoding: .utf8) {
-                    print("📥 Raw response (\(responseString.count) bytes): \(responseString.prefix(1000))")
-                    
+                    os_log("[SupabaseServiceBase] Raw response (%d bytes)", log: .default, type: .debug, responseString.count)
+
                     // Try to decode as JSON to see structure
                     if let json = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]], let first = json.first {
-                        print("📋 First item keys: \(first.keys.joined(separator: ", "))")
+                        os_log("[SupabaseServiceBase] First item keys: %{public}s", log: .default, type: .debug, first.keys.joined(separator: ", "))
                     }
                 }
                 
@@ -116,18 +116,22 @@ class SupabaseServiceBase {
                     let decoded = try decoder.decode(T.self, from: data)
                     return decoded
                 } catch let decodingError as DecodingError {
-                    print("❌ Decoding error details:")
+                    os_log("[SupabaseServiceBase] Decoding error", log: .default, type: .error)
                     switch decodingError {
                     case .keyNotFound(let key, let context):
-                        print("   Missing key: \(key.stringValue) at path: \(context.codingPath.map { $0.stringValue }.joined(separator: "."))")
+                        let path = context.codingPath.map { $0.stringValue }.joined(separator: ".")
+                        os_log("[SupabaseServiceBase] Missing key: %{public}s at path: %{public}s", log: .default, type: .error, key.stringValue, path)
                     case .typeMismatch(let type, let context):
-                        print("   Type mismatch for \(type) at path: \(context.codingPath.map { $0.stringValue }.joined(separator: "."))")
+                        let path = context.codingPath.map { $0.stringValue }.joined(separator: ".")
+                        os_log("[SupabaseServiceBase] Type mismatch for %{public}s at path: %{public}s", log: .default, type: .error, String(describing: type), path)
                     case .valueNotFound(let type, let context):
-                        print("   Value not found for \(type) at path: \(context.codingPath.map { $0.stringValue }.joined(separator: "."))")
+                        let path = context.codingPath.map { $0.stringValue }.joined(separator: ".")
+                        os_log("[SupabaseServiceBase] Value not found for %{public}s at path: %{public}s", log: .default, type: .error, String(describing: type), path)
                     case .dataCorrupted(let context):
-                        print("   Data corrupted at path: \(context.codingPath.map { $0.stringValue }.joined(separator: ".")) - \(context.debugDescription)")
+                        let path = context.codingPath.map { $0.stringValue }.joined(separator: ".")
+                        os_log("[SupabaseServiceBase] Data corrupted at path: %{public}s", log: .default, type: .error, path)
                     @unknown default:
-                        print("   Unknown decoding error: \(decodingError)")
+                        os_log("[SupabaseServiceBase] Unknown decoding error", log: .default, type: .error)
                     }
                     throw decodingError
                 }
@@ -165,17 +169,17 @@ class SupabaseServiceBase {
                 
                 guard (200...299).contains(httpResponse.statusCode) else {
                     let errorMessage = String(data: data, encoding: .utf8) ?? "Unknown error"
-                    print("❌ HTTP Error \(httpResponse.statusCode): \(errorMessage)")
+                    os_log("[SupabaseServiceBase] HTTP Error %d: %{public}s", log: .default, type: .error, httpResponse.statusCode, errorMessage)
                     throw SupabaseError.requestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
                 }
-                
+
                 // Log raw response for debugging
                 if let responseString = String(data: data, encoding: .utf8) {
-                    print("📥 Raw array response (\(responseString.count) bytes): \(responseString.prefix(1000))")
-                    
+                    os_log("[SupabaseServiceBase] Raw array response (%d bytes)", log: .default, type: .debug, responseString.count)
+
                     // Try to decode as JSON to see structure
                     if let json = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]], let first = json.first {
-                        print("📋 First item keys: \(first.keys.joined(separator: ", "))")
+                        os_log("[SupabaseServiceBase] First item keys: %{public}s", log: .default, type: .debug, first.keys.joined(separator: ", "))
                     }
                 }
                 
@@ -185,21 +189,25 @@ class SupabaseServiceBase {
                 
                 do {
                     let decoded = try decoder.decode([T].self, from: data)
-                    print("✅ Decoded \(decoded.count) items")
+                    os_log("[SupabaseServiceBase] Decoded %d items", log: .default, type: .info, decoded.count)
                     return decoded
                 } catch let decodingError as DecodingError {
-                    print("❌ Decoding error details:")
+                    os_log("[SupabaseServiceBase] Decoding error", log: .default, type: .error)
                     switch decodingError {
                     case .keyNotFound(let key, let context):
-                        print("   Missing key: \(key.stringValue) at path: \(context.codingPath.map { $0.stringValue }.joined(separator: "."))")
+                        let path = context.codingPath.map { $0.stringValue }.joined(separator: ".")
+                        os_log("[SupabaseServiceBase] Missing key: %{public}s at path: %{public}s", log: .default, type: .error, key.stringValue, path)
                     case .typeMismatch(let type, let context):
-                        print("   Type mismatch for \(type) at path: \(context.codingPath.map { $0.stringValue }.joined(separator: "."))")
+                        let path = context.codingPath.map { $0.stringValue }.joined(separator: ".")
+                        os_log("[SupabaseServiceBase] Type mismatch for %{public}s at path: %{public}s", log: .default, type: .error, String(describing: type), path)
                     case .valueNotFound(let type, let context):
-                        print("   Value not found for \(type) at path: \(context.codingPath.map { $0.stringValue }.joined(separator: "."))")
+                        let path = context.codingPath.map { $0.stringValue }.joined(separator: ".")
+                        os_log("[SupabaseServiceBase] Value not found for %{public}s at path: %{public}s", log: .default, type: .error, String(describing: type), path)
                     case .dataCorrupted(let context):
-                        print("   Data corrupted at path: \(context.codingPath.map { $0.stringValue }.joined(separator: ".")) - \(context.debugDescription)")
+                        let path = context.codingPath.map { $0.stringValue }.joined(separator: ".")
+                        os_log("[SupabaseServiceBase] Data corrupted at path: %{public}s", log: .default, type: .error, path)
                     @unknown default:
-                        print("   Unknown decoding error: \(decodingError)")
+                        os_log("[SupabaseServiceBase] Unknown decoding error", log: .default, type: .error)
                     }
                     throw decodingError
                 }

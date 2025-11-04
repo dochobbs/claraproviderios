@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import os.log
 
 // MARK: - Provider Conversation Store
 // Manages state for provider review requests and conversations
@@ -54,21 +55,18 @@ class ProviderConversationStore: ObservableObject {
         
         do {
             let requests = try await supabaseService.fetchProviderReviewRequests()
-            
+
             await MainActor.run {
-                print("📊 Loaded \(requests.count) review requests")
-                
+                os_log("[ProviderConversationStore] Loaded %d review requests", log: .default, type: .info, requests.count)
+
                 // Debug: Log sample data to see what we're getting
                 if let first = requests.first {
-                    print("📋 Sample request:")
-                    print("   ID: \(first.id)")
-                    print("   Conversation ID: \(first.conversationId)")
-                    print("   Title: \(first.conversationTitle ?? "nil")")
-                    print("   Child Name: \(first.childName ?? "nil")")
-                    print("   Child Age: \(first.childAge ?? "nil")")
-                    print("   Messages count: \(first.conversationMessages?.count ?? 0)")
+                    os_log("[ProviderConversationStore] Sample request - ID: %{public}s, Conversation: %{public}s, Title: %{public}s",
+                           log: .default, type: .debug, first.id, first.conversationId, first.conversationTitle ?? "nil")
+                    os_log("[ProviderConversationStore] Patient - Name: %{public}s, Age: %{public}s, Messages: %d",
+                           log: .default, type: .debug, first.childName ?? "nil", first.childAge ?? "nil", first.conversationMessages?.count ?? 0)
                 }
-                
+
                 reviewRequests = requests
                 isLoading = false
             }
@@ -77,9 +75,11 @@ class ProviderConversationStore: ObservableObject {
                 let errorDesc = error.localizedDescription
                 errorMessage = errorDesc
                 isLoading = false
-                print("❌ Error loading review requests: \(error)")
+                os_log("[ProviderConversationStore] Error loading review requests: %{public}s",
+                       log: .default, type: .error, errorDesc)
                 if let supabaseError = error as? SupabaseError {
-                    print("   Supabase error details: \(supabaseError)")
+                    os_log("[ProviderConversationStore] Supabase error: %{public}s",
+                           log: .default, type: .error, supabaseError.localizedDescription)
                 }
             }
         }
@@ -114,8 +114,9 @@ class ProviderConversationStore: ObservableObject {
             await MainActor.run {
                 errorMessage = error.localizedDescription
                 isLoading = false
+                os_log("[ProviderConversationStore] Error loading filtered review requests: %{public}s",
+                       log: .default, type: .error, error.localizedDescription)
             }
-            print("❌ Error loading review requests: \(error)")
         }
     }
     
@@ -124,7 +125,8 @@ class ProviderConversationStore: ObservableObject {
         do {
             return try await supabaseService.fetchReviewForConversation(conversationId: id)
         } catch {
-            print("❌ Error fetching review for conversation: \(error)")
+            os_log("[ProviderConversationStore] Error fetching review for conversation %{public}s: %{public}s",
+                   log: .default, type: .error, id.uuidString, error.localizedDescription)
             return nil
         }
     }
@@ -176,7 +178,8 @@ class ProviderConversationStore: ObservableObject {
                 }
                 isLoading = false
             }
-            print("❌ Error loading conversation details: \(error)")
+            os_log("[ProviderConversationStore] Error loading conversation details for %{public}s: %{public}s",
+                   log: .default, type: .error, id.uuidString, error.localizedDescription)
         }
     }
     

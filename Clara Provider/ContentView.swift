@@ -154,46 +154,46 @@ struct ContentView: View {
     private func loadPatients() async {
         await MainActor.run { isLoadingPatients = true }
         do {
-            print("🔍 Fetching patients from Supabase...")
+            os_log("[ContentView] Fetching patients from Supabase", log: .default, type: .info)
             let results = try await ProviderSupabaseService.shared.fetchPatients()
-            print("✅ Fetched \(results.count) patients from Supabase")
-            
+            os_log("[ContentView] Fetched %d patients from Supabase", log: .default, type: .info, results.count)
+
             // Also try to get patients from review requests as fallback
             if results.isEmpty {
-                print("⚠️ No patients from patients table, using review requests as fallback")
+                os_log("[ContentView] No patients from patients table, using review requests as fallback", log: .default, type: .info)
                 await store.loadReviewRequests()
                 let fallbackPatients = patientsFromStore
                 await MainActor.run {
                     self.patients = fallbackPatients
                     isLoadingPatients = false
                 }
-                print("📋 Using \(fallbackPatients.count) patients from review requests")
+                os_log("[ContentView] Using %d patients from review requests", log: .default, type: .info, fallbackPatients.count)
             } else {
                 let mapped: [PatientListItem] = results.map { p in
                     // Use the patient's id as a stable UUID if provided; otherwise generate
                     let uuid = p.id
                     let display = (p.name?.trimmingCharacters(in: .whitespacesAndNewlines)).flatMap { $0.isEmpty ? nil : $0 } ?? "Patient"
-                    print("   Patient: \(display) (ID: \(uuid), UserID: \(p.userId))")
+                    os_log("[ContentView] Patient: %{public}s (ID: %{public}s, UserID: %{public}s)", log: .default, type: .debug, display, uuid.uuidString, p.userId)
                     return PatientListItem(id: uuid, userId: p.userId, name: display)
                 }
                 await MainActor.run {
                     self.patients = mapped
                     isLoadingPatients = false
-                    print("📊 Loaded \(mapped.count) patients into menu")
+                    os_log("[ContentView] Loaded %d patients into menu", log: .default, type: .info, mapped.count)
                 }
             }
         } catch {
             await MainActor.run { isLoadingPatients = false }
-            print("❌ Error fetching patients: \(error)")
-            
+            os_log("[ContentView] Error fetching patients: %{public}s", log: .default, type: .error, error.localizedDescription)
+
             // Fallback to review requests if patients table fails
-            print("🔄 Falling back to patients from review requests...")
+            os_log("[ContentView] Falling back to patients from review requests", log: .default, type: .info)
             await store.loadReviewRequests()
             let fallbackPatients = patientsFromStore
             await MainActor.run {
                 self.patients = fallbackPatients
             }
-            print("📋 Using \(fallbackPatients.count) patients from review requests")
+            os_log("[ContentView] Using %d patients from review requests", log: .default, type: .info, fallbackPatients.count)
         }
     }
 }
