@@ -9,6 +9,7 @@ import SwiftUI
 import UserNotifications
 import UIKit
 import os.log
+import CoreText
 
 @main
 struct Clara_ProviderApp: App {
@@ -18,6 +19,10 @@ struct Clara_ProviderApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        // CRITICAL FIX: Dynamically load fonts from bundle using CTFontManagerRegisterFontsForURL
+        // This works better than Info.plist for fonts with metadata issues
+        loadCustomFonts()
+
         // Verify fonts are loaded on app launch
         Font.debugListAvailableFonts()
 
@@ -37,6 +42,48 @@ struct Clara_ProviderApp: App {
         textFieldAppearance.textColor = .black
         if #available(iOS 13.0, *) {
             textFieldAppearance.layer.backgroundColor = UIColor.white.cgColor
+        }
+    }
+
+    /// Load custom fonts from bundle using CTFontManager
+    /// This is more reliable than Info.plist for fonts with metadata issues
+    private func loadCustomFonts() {
+        let fontNames = [
+            "RethinkSans-Regular.ttf",
+            "RethinkSans-Bold.ttf",
+            "RethinkSans-Italic.ttf",
+            "RethinkSans-BoldItalic.ttf",
+            "RethinkSans-Medium.ttf",
+            "RethinkSans-MediumItalic.ttf",
+            "RethinkSans-SemiBold.ttf",
+            "RethinkSans-SemiBoldItalic.ttf",
+            "RethinkSans-ExtraBold.ttf",
+            "RethinkSans-ExtraBoldItalic.ttf"
+        ]
+
+        for fontName in fontNames {
+            // Get path to font in app bundle
+            guard let fontPath = Bundle.main.path(forResource: fontName, ofType: nil) else {
+                os_log("[Clara_ProviderApp] Font file not found in bundle: %{public}s", log: .default, type: .error, fontName)
+                continue
+            }
+
+            let fontURL = URL(fileURLWithPath: fontPath)
+
+            // Register font with system using CTFontManager
+            // This allows iOS to find the font even if metadata is non-standard
+            var error: Unmanaged<CFError>?
+            let registered = CTFontManagerRegisterFontsForURL(fontURL as CFURL, .process, &error)
+
+            if registered {
+                os_log("[Clara_ProviderApp] ✅ Successfully registered font: %{public}s", log: .default, type: .info, fontName)
+            } else {
+                if let error = error?.takeRetainedValue() {
+                    os_log("[Clara_ProviderApp] ❌ Failed to register font %{public}s: %{public}s", log: .default, type: .error, fontName, CFErrorCopyDescription(error) as String)
+                } else {
+                    os_log("[Clara_ProviderApp] ❌ Failed to register font: %{public}s", log: .default, type: .error, fontName)
+                }
+            }
         }
     }
     
