@@ -46,9 +46,11 @@ class SecureConfig {
     ///   - account: The account identifier for retrieval
     private func storeInKeychain(_ value: String, account: String) {
         guard let data = value.data(using: .utf8) else {
-            os_log("[SecureConfig] Failed to encode value for storage", log: .default, type: .error)
+            os_log("[SecureConfig] Failed to encode value for storage (account: %{public}s)", log: .default, type: .error, account)
             return
         }
+
+        os_log("[SecureConfig] Storing value in Keychain (account: %{public}s, length: %d)", log: .default, type: .debug, account, data.count)
 
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -59,13 +61,14 @@ class SecureConfig {
         ]
 
         // Delete existing entry first
-        SecItemDelete(query as CFDictionary)
+        let deleteStatus = SecItemDelete(query as CFDictionary)
+        os_log("[SecureConfig] Delete existing item status: %d (account: %{public}s)", log: .default, type: .debug, deleteStatus, account)
 
         // Add new entry
         let status = SecItemAdd(query as CFDictionary, nil)
 
         if status == errSecSuccess {
-            os_log("[SecureConfig] Successfully stored %{public}s in Keychain", log: .default, type: .info, account)
+            os_log("[SecureConfig] Successfully stored %{public}s in Keychain (status: %d)", log: .default, type: .info, account, status)
         } else {
             os_log("[SecureConfig] Failed to store in Keychain: %{public}s (status: %d)", log: .default, type: .error, account, status)
         }
@@ -79,7 +82,8 @@ class SecureConfig {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: keychainService,
             kSecAttrAccount as String: account,
-            kSecReturnData as String: true
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne  // Only return first match
         ]
 
         var item: AnyObject?
@@ -87,17 +91,21 @@ class SecureConfig {
 
         guard status == errSecSuccess else {
             if status != errSecItemNotFound {
-                os_log("[SecureConfig] Error retrieving from Keychain: %d", log: .default, type: .error, status)
+                os_log("[SecureConfig] Error retrieving from Keychain: %d (account: %{public}s)", log: .default, type: .error, status, account)
+            } else {
+                os_log("[SecureConfig] Keychain item not found (account: %{public}s)", log: .default, type: .debug, account)
             }
             return nil
         }
 
         guard let data = item as? Data else {
-            os_log("[SecureConfig] Retrieved data is not valid", log: .default, type: .error)
+            os_log("[SecureConfig] Retrieved data is not valid (account: %{public}s)", log: .default, type: .error, account)
             return nil
         }
 
-        return String(data: data, encoding: .utf8)
+        let value = String(data: data, encoding: .utf8)
+        os_log("[SecureConfig] Successfully retrieved value from Keychain (account: %{public}s, length: %d)", log: .default, type: .debug, account, value?.count ?? 0)
+        return value
     }
 
     /// Delete an entry from Keychain
