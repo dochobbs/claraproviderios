@@ -30,15 +30,22 @@ class SupabaseServiceBase {
         // Get project URL from SecureConfig
         self.projectURL = SecureConfig.shared.supabaseProjectURL
 
-        // Get API key from Keychain via SecureConfig
-        self.apiKey = SecureConfig.shared.supabaseAPIKey
+        // FIX: Store the default key in Keychain first if needed, then read back
+        // This ensures the key is always in Keychain and available for retrieval
+        var retrievedKey = SecureConfig.shared.supabaseAPIKey
 
         // If API key is not set, initialize with default (should only happen on first launch)
         // In production, this should be injected via secure deployment process
-        if self.apiKey == nil {
+        if retrievedKey == nil {
             let defaultKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtZnNhb2F3aG9tdXhhYmhkdWJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAzNTI3MjksImV4cCI6MjA3NTkyODcyOX0.X8zyqgFWNQ8Rk_UB096gaVTv709SAKI7iJc61UJn-L8"
             SecureConfig.shared.initializeSupabaseKey(defaultKey)
+            // Read back the key we just stored
+            retrievedKey = SecureConfig.shared.supabaseAPIKey
+            os_log("[SupabaseServiceBase] Initialized Supabase API key in Keychain", log: .default, type: .info)
         }
+
+        // Store the retrieved key
+        self.apiKey = retrievedKey
     }
     
     // MARK: - Request Building Helpers
