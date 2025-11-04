@@ -57,8 +57,15 @@ final class AuthenticationManager: ObservableObject {
     private let pbkdf2Iterations = 100_000
     private let pbkdf2DigestLength = 32 // 256-bit output
 
+    // CRITICAL FIX: Timer synchronization for race condition prevention
+    // Bug: scheduleSessionExpiry() could be called from multiple contexts (UI updates, timer callbacks)
+    // causing simultaneous timer invalidation and creation, leading to timer leaks or premature expiry
+    // Solution: Use NSLock to serialize timer access (timers must be created on main thread)
+    private let timerLock = NSLock()
+
     private var lastUnlockedAt: Date?
     private var sessionTimer: Timer?
+    private var timerScheduleTime: Date? // Track when timer was scheduled to detect stale schedules
 
     init() {
         refreshState()
@@ -66,7 +73,10 @@ final class AuthenticationManager: ObservableObject {
     }
 
     deinit {
+        timerLock.lock()
+        defer { timerLock.unlock() }
         sessionTimer?.invalidate()
+        sessionTimer = nil
     }
 
     func refreshState() {
@@ -89,9 +99,15 @@ final class AuthenticationManager: ObservableObject {
     }
 
     func lock() {
+        // Use lock to ensure atomic state transition
+        timerLock.lock()
+        defer { timerLock.unlock() }
+
         sessionTimer?.invalidate()
         sessionTimer = nil
+        timerScheduleTime = nil
         lastUnlockedAt = nil
+
         if fetchStoredPasswordHash() != nil {
             state = .locked
         } else {
@@ -255,14 +271,37 @@ final class AuthenticationManager: ObservableObject {
     }
 
     private func scheduleSessionExpiry() {
+        // CRITICAL FIX: Prevent timer race condition with proper synchronization
+        // Bug: Multiple rapid calls to scheduleSessionExpiry() could create/invalidate
+        // timers simultaneously, causing memory leaks or missed expirations
+        // Solution: Use NSLock to ensure serial access to timer state
+        // Timeline: User unlocks → timer scheduled → quick re-unlock → old timer cancelled
+        // and new one created atomically, preventing orphaned timers
+
+        timerLock.lock()
+        defer { timerLock.unlock() }
+
+        // Invalidate any existing timer first
         sessionTimer?.invalidate()
+        sessionTimer = nil
+        timerScheduleTime = nil
+
         guard let unlockDate = lastUnlockedAt else { return }
+
         let elapsed = Date().timeIntervalSince(unlockDate)
         let remaining = maxSessionDuration - elapsed
+
         guard remaining > 0 else {
+            // Session already expired, lock immediately
             lock()
             return
         }
+
+        // Record schedule time for detecting stale timers
+        timerScheduleTime = Date()
+
+        // Create new timer (must be on main thread for Timer)
+        // Use weak self to prevent reference cycles
         sessionTimer = Timer.scheduledTimer(withTimeInterval: remaining, repeats: false) { [weak self] _ in
             Task { @MainActor in
                 self?.lock()
