@@ -194,6 +194,8 @@ struct ConversationDetailView: View {
             }
         }
         .onAppear {
+            // Prepopulate reply with default "Agree" message since it's the default selection
+            replyText = selectedResponse.defaultMessage
             Task {
                 await loadConversationData()
             }
@@ -467,7 +469,7 @@ enum ProviderResponseType: String, CaseIterable {
     var defaultMessage: String {
         switch self {
         case .agree:
-            return "Clara did great! I agree with what she shared with you. If things change, both she and I are both here"
+            return "I agree! Clara did great! If things change, both she and I are here."
         case .messageDrHobbs:
             return "Dr Hobbs would love to connect with you on this. Nothing urgent, just to check in. Would you message him at xxx-xxx-xxxx?"
         default:
