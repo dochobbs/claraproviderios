@@ -206,10 +206,33 @@ class ProviderSupabaseService: SupabaseServiceBase {
         }
         
         request.httpBody = try JSONSerialization.data(withJSONObject: updatePayload)
-        
+
         try await executeRequest(request)
     }
-    
+
+    /// Update flag reason for a review request
+    func updateFlagReason(id: String, reason: String?) async throws {
+        let urlString = "\(projectURL)/rest/v1/provider_review_requests?id=eq.\(id)"
+
+        guard let url = URL(string: urlString) else {
+            throw SupabaseError.invalidResponse
+        }
+
+        var request = createPatchRequest(url: url)
+
+        // Build payload, handling nil values properly
+        var updatePayload: [String: Any] = [:]
+        if let reason = reason {
+            updatePayload["flag_reason"] = reason
+        } else {
+            updatePayload["flag_reason"] = NSNull()
+        }
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: updatePayload)
+
+        try await executeRequest(request)
+    }
+
     /// Add provider response details to a review request
     func addProviderResponse(
         id: String,

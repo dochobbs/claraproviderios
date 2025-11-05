@@ -466,6 +466,11 @@ class ProviderConversationStore: ObservableObject {
             // Update conversation status to "flagged" via Supabase
             try await supabaseService.updateReviewStatus(id: id.uuidString, status: "flagged")
 
+            // Update flag reason in Supabase if provided
+            if !trimmedReason.isEmpty {
+                try await supabaseService.updateFlagReason(id: id.uuidString, reason: trimmedReason)
+            }
+
             // Update local cache
             await MainActor.run {
                 // Update in reviewRequests list
@@ -525,6 +530,9 @@ class ProviderConversationStore: ObservableObject {
 
         // Update via Supabase to change status from "flagged" to "pending" if currently flagged
         try await supabaseService.updateReviewStatus(id: id.uuidString, status: currentStatus ?? "pending")
+
+        // Clear flag reason from Supabase
+        try await supabaseService.updateFlagReason(id: id.uuidString, reason: nil)
 
         // Update local cache
         await MainActor.run {
