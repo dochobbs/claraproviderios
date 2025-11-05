@@ -127,11 +127,6 @@ struct ClaraProviderApp: App {
                 }
             }
         }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .background {
-                authManager.lock()
-            }
-        }
     }
 }
 
