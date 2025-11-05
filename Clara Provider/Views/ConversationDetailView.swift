@@ -530,10 +530,10 @@ struct ProviderReplyBox: View {
                     .tint(.primaryCoral)
                     .onChange(of: selectedResponse) { _, newValue in
                         HapticFeedback.selection()
-                        // Auto-fill reply text for options that have default messages
-                        if replyText.isEmpty && !newValue.defaultMessage.isEmpty {
-                            replyText = newValue.defaultMessage
-                        }
+                        // Update reply text based on selected response type
+                        // - "Agree" and "Message Dr Hobbs" have default messages
+                        // - "Agree with Thoughts" and "Disagree with Thoughts" have empty defaults
+                        replyText = newValue.defaultMessage
                     }
                     
                     Spacer()
