@@ -56,6 +56,12 @@ struct AuthenticationView: View {
         .task {
             authManager.updateBiometricType()
         }
+        .onAppear {
+            // Automatically trigger Face ID when the app first shows the locked screen
+            if authManager.state == .locked && authManager.biometricType != .none && !isProcessing {
+                unlockWithBiometrics()
+            }
+        }
     }
     
     private var title: String {
