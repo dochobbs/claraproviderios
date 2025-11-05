@@ -106,22 +106,29 @@ struct ConversationDetailView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 // Flag button - always show, filled if flagged, empty if not
-                if let detail = conversationDetail {
-                    Button(action: {
-                        if detail.status?.lowercased() == "flagged" {
-                            // Unflag
-                            Task {
-                                await unflagConversation()
+                HStack(spacing: 12) {
+                    if let detail = conversationDetail {
+                        Button(action: {
+                            if detail.status?.lowercased() == "flagged" {
+                                // Unflag
+                                Task {
+                                    await unflagConversation()
+                                }
+                            } else {
+                                // Flag
+                                showingFlagModal = true
                             }
-                        } else {
-                            // Flag
-                            showingFlagModal = true
+                        }) {
+                            Image(systemName: detail.status?.lowercased() == "flagged" ? "flag.fill" : "flag")
+                                .foregroundColor(.orange)
                         }
-                    }) {
-                        Image(systemName: detail.status?.lowercased() == "flagged" ? "flag.fill" : "flag")
-                            .foregroundColor(.orange)
+                        .accessibilityLabel(detail.status?.lowercased() == "flagged" ? "Unflag conversation" : "Flag conversation")
+                    } else {
+                        // Show loading state or placeholder
+                        Image(systemName: "flag")
+                            .foregroundColor(.gray)
+                            .opacity(0.5)
                     }
-                    .accessibilityLabel(detail.status?.lowercased() == "flagged" ? "Unflag conversation" : "Flag conversation")
                 }
             }
         }
