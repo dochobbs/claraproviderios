@@ -315,8 +315,6 @@ struct ConversationDetailView: View {
                     status = "responded"
                 case .disagreeWithThoughts:
                     status = "flagged"
-                case .escalationNeeded:
-                    status = "escalated"
                 case .messageDrHobbs:
                     status = "responded"
                 }
@@ -336,7 +334,7 @@ struct ConversationDetailView: View {
                         id: detail.id,
                         response: finalResponse,
                         name: includeProviderName ? "Dr Michael Hobbs" : nil,
-                        urgency: selectedResponse == .escalationNeeded ? "urgent" : nil,
+                        urgency: nil,
                         status: status
                     )
                     
@@ -447,7 +445,6 @@ enum ProviderResponseType: String, CaseIterable {
     case agree = "agree"
     case agreeWithThoughts = "agree_with_thoughts"
     case disagreeWithThoughts = "disagree_with_thoughts"
-    case escalationNeeded = "escalation_needed"
     case messageDrHobbs = "message_dr_hobbs"
 
     var displayName: String {
@@ -458,8 +455,6 @@ enum ProviderResponseType: String, CaseIterable {
             return "Agree with Thoughts"
         case .disagreeWithThoughts:
             return "Disagree with Thoughts"
-        case .escalationNeeded:
-            return "Escalation Needed"
         case .messageDrHobbs:
             return "Message Dr Hobbs"
         }
