@@ -185,34 +185,34 @@ class ProviderSupabaseService: SupabaseServiceBase {
     
     // MARK: - Update Review Status
     
-    /// Update the status of a provider review request
+    /// Update the status of a provider review request by conversation_id
     func updateReviewStatus(id: String, status: String) async throws {
-        let urlString = "\(projectURL)/rest/v1/provider_review_requests?id=eq.\(id)"
-        
+        let urlString = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(id)"
+
         guard let url = URL(string: urlString) else {
             throw SupabaseError.invalidResponse
         }
-        
+
         var request = createPatchRequest(url: url)
-        
+
         var updatePayload: [String: Any] = [
             "status": status
         ]
-        
+
         // Add responded_at if marking as responded
         if status == "responded" {
             let formatter = ISO8601DateFormatter()
             updatePayload["responded_at"] = formatter.string(from: Date())
         }
-        
+
         request.httpBody = try JSONSerialization.data(withJSONObject: updatePayload)
 
         try await executeRequest(request)
     }
 
-    /// Update flag reason for a review request
+    /// Update flag reason for a review request by conversation_id
     func updateFlagReason(id: String, reason: String?) async throws {
-        let urlString = "\(projectURL)/rest/v1/provider_review_requests?id=eq.\(id)"
+        let urlString = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(id)"
 
         guard let url = URL(string: urlString) else {
             throw SupabaseError.invalidResponse
