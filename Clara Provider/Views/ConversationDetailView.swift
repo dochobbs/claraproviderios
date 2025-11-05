@@ -104,11 +104,31 @@ struct ConversationDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button(action: { showingFlagModal = true }) {
-                    Image(systemName: "flag")
+                HStack(spacing: 12) {
+                    // Show flagged indicator if status is flagged
+                    if let detail = conversationDetail, detail.status?.lowercased() == "flagged" {
+                        HStack(spacing: 4) {
+                            Image(systemName: "flag.fill")
+                                .font(.system(size: 12, weight: .semibold))
+                            Text("Flagged")
+                                .font(.rethinkSans(12, relativeTo: .caption))
+                        }
                         .foregroundColor(.orange)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.orange.opacity(0.15))
+                        .cornerRadius(6)
+                    }
+
+                    // Flag button - only show if not already flagged
+                    if let detail = conversationDetail, detail.status?.lowercased() != "flagged" {
+                        Button(action: { showingFlagModal = true }) {
+                            Image(systemName: "flag")
+                                .foregroundColor(.orange)
+                        }
+                        .accessibilityLabel("Flag conversation")
+                    }
                 }
-                .accessibilityLabel("Flag conversation")
             }
         }
         .sheet(isPresented: $showingMessageInput) {
@@ -295,6 +315,8 @@ struct ConversationDetailView: View {
                     status = "flagged"
                 case .escalationNeeded:
                     status = "escalated"
+                case .messageDrHobbs:
+                    status = "responded"
                 }
                 
                 // Add provider response if text is provided
@@ -401,6 +423,11 @@ struct ConversationDetailView: View {
                     isFlagging = false
                     showingFlagModal = false
                     flagReason = ""
+                    // Update local conversation detail to reflect flagged status
+                    if var detail = conversationDetail {
+                        detail.status = "flagged"
+                        conversationDetail = detail
+                    }
                     HapticFeedback.success()
                 }
             } catch {
@@ -419,7 +446,8 @@ enum ProviderResponseType: String, CaseIterable {
     case agreeWithThoughts = "agree_with_thoughts"
     case disagreeWithThoughts = "disagree_with_thoughts"
     case escalationNeeded = "escalation_needed"
-    
+    case messageDrHobbs = "message_dr_hobbs"
+
     var displayName: String {
         switch self {
         case .agree:
@@ -430,6 +458,18 @@ enum ProviderResponseType: String, CaseIterable {
             return "Disagree with Thoughts"
         case .escalationNeeded:
             return "Escalation Needed"
+        case .messageDrHobbs:
+            return "Message Dr Hobbs"
+        }
+    }
+
+    /// Default message template for Message Dr Hobbs option
+    var defaultMessage: String {
+        switch self {
+        case .messageDrHobbs:
+            return "Dr Hobbs would love to connect with you on this. Nothing urgent, just to check in. Would you message him at xxx-xxx-xxxx?"
+        default:
+            return ""
         }
     }
 }
@@ -461,8 +501,12 @@ struct ProviderReplyBox: View {
                     }
                     .pickerStyle(.menu)
                     .tint(.primaryCoral)
-                    .onChange(of: selectedResponse) { _, _ in
+                    .onChange(of: selectedResponse) { _, newValue in
                         HapticFeedback.selection()
+                        // Auto-fill reply text for Message Dr Hobbs option
+                        if newValue == .messageDrHobbs && replyText.isEmpty {
+                            replyText = newValue.defaultMessage
+                        }
                     }
                     
                     Spacer()
