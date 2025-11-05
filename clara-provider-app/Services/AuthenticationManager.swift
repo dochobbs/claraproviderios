@@ -198,7 +198,7 @@ final class AuthenticationManager: ObservableObject {
             throw AuthenticationError.biometricsUnavailable
         }
 
-        let reason = "Unlock Clara Provider"
+        let reason = "Unlock clara-provider-app"
 
         try await withCheckedThrowingContinuation { continuation in
             context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { result, evalError in

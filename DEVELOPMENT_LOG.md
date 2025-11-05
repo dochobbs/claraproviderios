@@ -1,4 +1,4 @@
-# Clara Provider iOS - Development & Bug Fix Log
+# clara-provider-app iOS - Development & Bug Fix Log
 
 **Last Updated:** November 4, 2025
 **Current Status:** Multiple critical issues fixed, comprehensive code review completed
@@ -8,7 +8,7 @@
 
 ## EXECUTIVE SUMMARY
 
-The Clara Provider iOS app has undergone significant improvements in stability, performance, security, and functionality. This document tracks all changes made, issues identified, and remaining work items.
+The clara-provider-app iOS app has undergone significant improvements in stability, performance, security, and functionality. This document tracks all changes made, issues identified, and remaining work items.
 
 **Total Commits:** 20+ fixes and improvements
 **Major Categories Fixed:** 5 (Performance, Security, Stability, Fonts, Data Management)
@@ -144,7 +144,7 @@ The Clara Provider iOS app has undergone significant improvements in stability, 
 - ⚠️ Canvas preview still not loading (needs Resources phase)
 
 **Files Modified:**
-- `Clara Provider.xcodeproj/project.pbxproj` - Added font registration
+- `clara-provider-app.xcodeproj/project.pbxproj` - Added font registration
 
 ---
 
@@ -167,7 +167,7 @@ The Clara Provider iOS app has undergone significant improvements in stability, 
 - ⚠️ Still not rendering (Info.plist format issue)
 
 **Files Modified:**
-- `Clara Provider.xcodeproj/project.pbxproj` - Added explicit font references
+- `clara-provider-app.xcodeproj/project.pbxproj` - Added explicit font references
 
 ---
 
@@ -200,7 +200,7 @@ The Clara Provider iOS app has undergone significant improvements in stability, 
 - ✅ RethinkSans should now render correctly
 
 **Files Modified:**
-- `Clara Provider.xcodeproj/project.pbxproj` - Converted to array format
+- `clara-provider-app.xcodeproj/project.pbxproj` - Converted to array format
 
 **Why This Was Hard:**
 1. Multiple layers of font loading: source → bundle → Info.plist → UIFont loading → SwiftUI rendering
@@ -533,10 +533,10 @@ See **BUG_REPORT.md** for detailed findings.
 ```bash
 # Clean rebuild
 rm -rf ~/Library/Developer/Xcode/DerivedData/Clara_Provider*
-xcodebuild build -scheme "Clara Provider" -destination "generic/platform=iOS Simulator" -configuration Debug
+xcodebuild build -scheme "clara-provider-app" -destination "generic/platform=iOS Simulator" -configuration Debug
 
 # Install on simulator
-xcrun simctl install booted "/path/to/Clara Provider.app"
+xcrun simctl install booted "/path/to/clara-provider-app.app"
 ```
 
 ### Git Workflow
@@ -569,7 +569,7 @@ git push
 - Added onChange listener for unlock event
 - Force refresh data on unlock
 
-**Clara Provider.xcodeproj/project.pbxproj**
+**clara-provider-app.xcodeproj/project.pbxproj**
 - Added explicit font file references (3 commits)
 - Fixed UIAppFonts array format
 

@@ -1,8 +1,8 @@
-# Clara Provider iOS - Features Documentation
+# clara-provider-app iOS - Features Documentation
 
 ## Feature Overview
 
-Clara Provider is organized around six core feature areas that enable healthcare providers to effectively manage patient triage requests and clinical reviews.
+clara-provider-app is organized around six core feature areas that enable healthcare providers to effectively manage patient triage requests and clinical reviews.
 
 ## 1. Review Request Management
 

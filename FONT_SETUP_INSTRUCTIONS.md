@@ -13,15 +13,15 @@ The custom fonts (RethinkSans-Regular and RethinkSans-Bold) are not included in 
 
 2. **Add to Xcode project:**
    - Open the provider app project in Xcode
-   - Right-click on the "Clara Provider" folder in Project Navigator
-   - Select "Add Files to 'Clara Provider'..."
+   - Right-click on the "clara-provider-app" folder in Project Navigator
+   - Select "Add Files to 'clara-provider-app'..."
    - Navigate to and select both `.ttf` files
-   - **IMPORTANT**: Check "Copy items if needed" and ensure "Clara Provider" target is checked
+   - **IMPORTANT**: Check "Copy items if needed" and ensure "clara-provider-app" target is checked
    - Click "Add"
 
 3. **Register fonts in Info.plist:**
    - In Xcode, select the project in Project Navigator
-   - Select "Clara Provider" target
+   - Select "clara-provider-app" target
    - Go to "Info" tab
    - Expand "Custom iOS Target Properties"
    - Add a new key: `Fonts provided by application` (or `UIAppFonts`)

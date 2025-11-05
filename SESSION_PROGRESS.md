@@ -1,4 +1,4 @@
-# Clara Provider iOS App - Session Progress Documentation
+# clara-provider-app iOS App - Session Progress Documentation
 
 ## Session Summary
 This session focused on completing and refining the flag conversation feature, improving reply text auto-fill behavior, and ensuring all data persists correctly across app restarts.

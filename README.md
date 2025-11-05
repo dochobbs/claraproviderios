@@ -1,10 +1,10 @@
-# Clara Provider iOS
+# clara-provider-app iOS
 
 A modern SwiftUI-based iOS application for healthcare providers to review and respond to patient triage requests and consultation outcomes in real-time.
 
 ## Overview
 
-**Clara Provider** enables healthcare providers to:
+**clara-provider-app** enables healthcare providers to:
 - Review incoming patient triage and consultation requests
 - Access comprehensive patient medical histories
 - Provide clinical feedback and medical responses
@@ -50,7 +50,7 @@ A modern SwiftUI-based iOS application for healthcare providers to review and re
 The app follows **MVVM (Model-View-ViewModel)** architecture with Combine for state management:
 
 ```
-Clara Provider/
+clara-provider-app/
 ├── Clara_ProviderApp.swift          # App entry point
 ├── ContentView.swift                # Navigation container
 │
@@ -90,7 +90,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for comprehensive technical details.
 1. **Clone the repository**
    ```bash
    git clone https://github.com/dochobbs/claraproviderios.git
-   cd "Clara Provider"
+   cd "clara-provider-app"
    ```
 
 2. **Configure Supabase credentials**
@@ -99,7 +99,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for comprehensive technical details.
 
 3. **Open in Xcode**
    ```bash
-   open "Clara Provider.xcodeproj"
+   open "clara-provider-app.xcodeproj"
    ```
 
 4. **Build and Run**

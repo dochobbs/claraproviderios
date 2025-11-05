@@ -3,7 +3,7 @@
 ## Quick Setup
 
 1. **Open Xcode** and navigate to your project
-2. **Find the asset catalog**: `Clara Provider/Assets.xcassets/ClaudeIcon.imageset/`
+2. **Find the asset catalog**: `clara-provider-app/Assets.xcassets/ClaudeIcon.imageset/`
 3. **Add your image**:
    - Option A: Drag your image file directly into the `ClaudeIcon.imageset` folder in Finder
    - Option B: In Xcode, click on `ClaudeIcon` in the asset catalog, then drag your image into the 1x slot

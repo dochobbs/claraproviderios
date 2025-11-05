@@ -1,4 +1,4 @@
-# Clara Provider iOS - Data Usage Implementation Roadmap
+# clara-provider-app iOS - Data Usage Implementation Roadmap
 
 Based on the database audit, here's a prioritized roadmap to extract maximum value from your existing data.
 

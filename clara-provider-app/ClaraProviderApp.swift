@@ -1,6 +1,6 @@
 //
-//  Clara_ProviderApp.swift
-//  Clara Provider
+//  ClaraProviderApp.swift
+//  clara-provider-app
 //
 //  Created by Michael Hobbs on 10/22/25.
 //
@@ -12,7 +12,7 @@ import os.log
 import CoreText
 
 @main
-struct Clara_ProviderApp: App {
+struct ClaraProviderApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var store = ProviderConversationStore()
     @StateObject private var authManager = AuthenticationManager()
@@ -64,7 +64,7 @@ struct Clara_ProviderApp: App {
         for fontName in fontNames {
             // Get path to font in app bundle
             guard let fontPath = Bundle.main.path(forResource: fontName, ofType: nil) else {
-                os_log("[Clara_ProviderApp] Font file not found in bundle: %{public}s", log: .default, type: .error, fontName)
+                os_log("[ClaraProviderApp] Font file not found in bundle: %{public}s", log: .default, type: .error, fontName)
                 continue
             }
 
@@ -76,12 +76,12 @@ struct Clara_ProviderApp: App {
             let registered = CTFontManagerRegisterFontsForURL(fontURL as CFURL, .process, &error)
 
             if registered {
-                os_log("[Clara_ProviderApp] ✅ Successfully registered font: %{public}s", log: .default, type: .info, fontName)
+                os_log("[ClaraProviderApp] ✅ Successfully registered font: %{public}s", log: .default, type: .info, fontName)
             } else {
                 if let error = error?.takeRetainedValue() {
-                    os_log("[Clara_ProviderApp] ❌ Failed to register font %{public}s: %{public}s", log: .default, type: .error, fontName, CFErrorCopyDescription(error) as String)
+                    os_log("[ClaraProviderApp] ❌ Failed to register font %{public}s: %{public}s", log: .default, type: .error, fontName, CFErrorCopyDescription(error) as String)
                 } else {
-                    os_log("[Clara_ProviderApp] ❌ Failed to register font: %{public}s", log: .default, type: .error, fontName)
+                    os_log("[ClaraProviderApp] ❌ Failed to register font: %{public}s", log: .default, type: .error, fontName)
                 }
             }
         }
@@ -107,23 +107,23 @@ struct Clara_ProviderApp: App {
             .environmentObject(authManager)
         }
         .onChange(of: authManager.state) { _, newState in
-            os_log("[Clara_ProviderApp] Auth state changed to: %{public}s", log: .default, type: .info, String(describing: newState))
+            os_log("[ClaraProviderApp] Auth state changed to: %{public}s", log: .default, type: .info, String(describing: newState))
             if newState != .unlocked {
                 // FIX: Don't clear cached data when app backgrounds
                 // User may return within 12 hours and we want to show cached count
                 // Data is only cleared when session actually expires (12 hour timeout)
                 // Just stop auto-refresh timer to save battery
-                os_log("[Clara_ProviderApp] App locked, stopping auto-refresh", log: .default, type: .info)
+                os_log("[ClaraProviderApp] App locked, stopping auto-refresh", log: .default, type: .info)
                 store.stopAutoRefresh()
             } else {
                 // Force refresh data when unlocking
                 // Use forceRefreshReviewRequests to bypass the 30-second debounce
                 // so fresh data loads immediately after unlock
-                os_log("[Clara_ProviderApp] App unlocked, triggering force refresh", log: .default, type: .info)
+                os_log("[ClaraProviderApp] App unlocked, triggering force refresh", log: .default, type: .info)
                 Task {
-                    os_log("[Clara_ProviderApp] Calling forceRefreshReviewRequests", log: .default, type: .info)
+                    os_log("[ClaraProviderApp] Calling forceRefreshReviewRequests", log: .default, type: .info)
                     await store.forceRefreshReviewRequests()
-                    os_log("[Clara_ProviderApp] forceRefreshReviewRequests completed", log: .default, type: .info)
+                    os_log("[ClaraProviderApp] forceRefreshReviewRequests completed", log: .default, type: .info)
                 }
             }
         }

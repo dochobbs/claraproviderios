@@ -16,7 +16,7 @@ The question marks mean the fonts aren't added to the target. Here's how to fix 
 
 3. **Check Target Membership**:
    - In the File Inspector, find "Target Membership" section
-   - Check the box next to **"Clara Provider"**
+   - Check the box next to **"clara-provider-app"**
    - The question marks should disappear
 
 4. **Clean and Build**:
@@ -27,19 +27,19 @@ The question marks mean the fonts aren't added to the target. Here's how to fix 
 
 If Method 1 doesn't work:
 
-1. **Right-click** on the "Clara Provider" folder in Project Navigator
-2. Select **"Add Files to 'Clara Provider'..."**
+1. **Right-click** on the "clara-provider-app" folder in Project Navigator
+2. Select **"Add Files to 'clara-provider-app'..."**
 3. Navigate to and select both `.ttf` files
 4. **IMPORTANT**: Check these boxes:
    - ✅ "Copy items if needed" (may already be grayed out)
    - ✅ "Create groups" (not "Create folder references")
-   - ✅ "Add to targets: Clara Provider" (MUST be checked)
+   - ✅ "Add to targets: clara-provider-app" (MUST be checked)
 5. Click **"Add"**
 
 ## Method 3: Build Phases
 
 1. Select the **project** (blue icon) in Project Navigator
-2. Select **"Clara Provider"** target
+2. Select **"clara-provider-app"** target
 3. Go to **"Build Phases"** tab
 4. Expand **"Copy Bundle Resources"**
 5. Click the **"+"** button

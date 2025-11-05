@@ -1,7 +1,7 @@
 # Push Notification Setup Guide
 
 ## Overview
-This guide explains how to set up push notifications for the Clara Provider app using Supabase webhooks. When a new review request is created, a webhook will trigger a push notification to be sent to the provider's device.
+This guide explains how to set up push notifications for the clara-provider-app app using Supabase webhooks. When a new review request is created, a webhook will trigger a push notification to be sent to the provider's device.
 
 ## Architecture
 
@@ -310,7 +310,7 @@ In Supabase Dashboard:
    - Project Settings → Apple → Should show certificate status
 
 5. **Check notification permissions:**
-   - Device Settings → Clara Provider → Notifications → Should be ON
+   - Device Settings → clara-provider-app → Notifications → Should be ON
 
 ### Webhook not triggering
 

@@ -25,7 +25,7 @@ If you want to add files manually:
 
 2. **Place files in:**
    ```
-   Clara Provider/Assets.xcassets/AppIcon.appiconset/
+   clara-provider-app/Assets.xcassets/AppIcon.appiconset/
    ```
 
 3. **Update Contents.json** to reference the files:

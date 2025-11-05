@@ -1,4 +1,4 @@
-# Clara Provider iOS - Setup & Development Guide
+# clara-provider-app iOS - Setup & Development Guide
 
 ## Table of Contents
 1. [Prerequisites](#prerequisites)
@@ -38,7 +38,7 @@
 git clone https://github.com/dochobbs/claraproviderios.git
 
 # Navigate to project directory
-cd "Clara Provider"
+cd "clara-provider-app"
 
 # Verify directory structure
 ls -la
@@ -46,7 +46,7 @@ ls -la
 
 **Expected Structure:**
 ```
-Clara Provider/
+clara-provider-app/
 ├── Clara_ProviderApp.swift
 ├── ContentView.swift
 ├── PatientChartView.swift
@@ -91,7 +91,7 @@ open -a Xcode .
 
 Once in Xcode:
 1. Click on the Project in the left sidebar
-2. Select "Clara Provider" target
+2. Select "clara-provider-app" target
 3. Verify build settings:
    - **Minimum Deployment**: iOS 15.0
    - **Swift Language**: 5.9 or later
@@ -101,7 +101,7 @@ Once in Xcode:
 ### 1. Project Settings
 
 **Team Selection:**
-1. Select Project → Clara Provider target
+1. Select Project → clara-provider-app target
 2. Go to "Signing & Capabilities" tab
 3. Select your Apple Developer Team from dropdown
    - If you don't see your team, sign in to Xcode with your Apple ID
@@ -176,7 +176,7 @@ Once project is ready:
 
 ### 3. Configure in App
 
-**File:** `Clara Provider/Services/SupabaseServiceBase.swift`
+**File:** `clara-provider-app/Services/SupabaseServiceBase.swift`
 
 Locate the base class and update:
 
@@ -443,7 +443,7 @@ Product → Build (Cmd + B)
 ### 2. Running on Simulator
 
 1. **Select Simulator**
-   - Top of Xcode window: Clara Provider → iPhone 15 (or your choice)
+   - Top of Xcode window: clara-provider-app → iPhone 15 (or your choice)
    - Or: Product → Destination → Select device
 
 2. **Run App**
@@ -461,7 +461,7 @@ Product → Build (Cmd + B)
    - iPhone: Trust This Computer
 
 2. **Select Device**
-   - Xcode: Clara Provider → Your iPhone
+   - Xcode: clara-provider-app → Your iPhone
    - Or: Product → Destination → Your iPhone
 
 3. **Run App**
@@ -599,7 +599,7 @@ curl -X GET "https://[project-id].supabase.co/rest/v1/provider_review_requests?s
 #### "Simulator build succeeds but device fails"
 **Cause**: Team/Signing configuration
 **Solution:**
-1. Select Project → Clara Provider target
+1. Select Project → clara-provider-app target
 2. Signing & Capabilities → Team
 3. Select your Apple Developer Team
 4. Wait for auto code signing to complete
@@ -610,7 +610,7 @@ curl -X GET "https://[project-id].supabase.co/rest/v1/provider_review_requests?s
 **Solution:**
 1. Check APNs certificate in Supabase
 2. Verify app has notification permission:
-   - Settings → Clara Provider → Notifications → On
+   - Settings → clara-provider-app → Notifications → On
 3. Check device token is registered:
    - Check UserDefaults for device token
    - Log output should show registration

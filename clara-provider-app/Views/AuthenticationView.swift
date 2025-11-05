@@ -61,9 +61,9 @@ struct AuthenticationView: View {
     private var title: String {
         switch authManager.state {
         case .needsSetup:
-            return "Secure Clara Provider"
+            return "Secure clara-provider-app"
         case .locked:
-            return "Unlock Clara Provider"
+            return "Unlock clara-provider-app"
         case .unlocked:
             return ""
         }

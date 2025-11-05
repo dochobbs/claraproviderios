@@ -1,4 +1,4 @@
-# Clara Provider iOS - Comprehensive Bug Report
+# clara-provider-app iOS - Comprehensive Bug Report
 
 **Report Date:** November 4, 2025
 **Review Scope:** Complete codebase analysis (29 Swift files)
@@ -9,7 +9,7 @@
 
 ## EXECUTIVE SUMMARY
 
-The Clara Provider iOS application, while architecturally sound with modern async/await patterns and proper password hashing, contains **43 identified bugs** spanning security, memory management, concurrency, and HIPAA compliance. **20 of these are HIGH priority** and should be addressed before handling production patient data.
+The clara-provider-app iOS application, while architecturally sound with modern async/await patterns and proper password hashing, contains **43 identified bugs** spanning security, memory management, concurrency, and HIPAA compliance. **20 of these are HIGH priority** and should be addressed before handling production patient data.
 
 The most critical issues are:
 1. **Hardcoded Supabase API key** - Visible in source, extractable from binary
@@ -24,7 +24,7 @@ The most critical issues are:
 ### 🔴 SECURITY - Hardcoded API Key
 
 **Severity:** CRITICAL - Immediate Action Required
-**File:** `Clara Provider/Services/SupabaseServiceBase.swift`, Line 35
+**File:** `clara-provider-app/Services/SupabaseServiceBase.swift`, Line 35
 **Type:** Credential Exposure
 
 ```swift

@@ -1,4 +1,4 @@
-# Clara Provider iOS - Architecture Documentation
+# clara-provider-app iOS - Architecture Documentation
 
 ## Table of Contents
 1. [System Architecture](#system-architecture)

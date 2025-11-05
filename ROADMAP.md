@@ -1,4 +1,4 @@
-# Clara Provider iOS - Product Roadmap
+# clara-provider-app iOS - Product Roadmap
 
 **Last Updated**: November 4, 2025
 

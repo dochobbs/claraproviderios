@@ -7,23 +7,23 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		7B48DBD62EA9D46200CF6F26 /* Clara Provider.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Clara Provider.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		7B48DBE42EA9D46300CF6F26 /* RethinkSans-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Clara Provider/RethinkSans-Regular.ttf"; sourceTree = SOURCE_ROOT; };
-		7B48DBE52EA9D46300CF6F26 /* RethinkSans-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Clara Provider/RethinkSans-Bold.ttf"; sourceTree = SOURCE_ROOT; };
-		7B48DBE62EA9D46300CF6F26 /* RethinkSans-Italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Clara Provider/RethinkSans-Italic.ttf"; sourceTree = SOURCE_ROOT; };
-		7B48DBE72EA9D46300CF6F26 /* RethinkSans-BoldItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Clara Provider/RethinkSans-BoldItalic.ttf"; sourceTree = SOURCE_ROOT; };
-		7B48DBE82EA9D46300CF6F26 /* RethinkSans-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Clara Provider/RethinkSans-Medium.ttf"; sourceTree = SOURCE_ROOT; };
-		7B48DBE92EA9D46300CF6F26 /* RethinkSans-MediumItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Clara Provider/RethinkSans-MediumItalic.ttf"; sourceTree = SOURCE_ROOT; };
-		7B48DBEA2EA9D46300CF6F26 /* RethinkSans-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Clara Provider/RethinkSans-SemiBold.ttf"; sourceTree = SOURCE_ROOT; };
-		7B48DBEB2EA9D46300CF6F26 /* RethinkSans-SemiBoldItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Clara Provider/RethinkSans-SemiBoldItalic.ttf"; sourceTree = SOURCE_ROOT; };
-		7B48DBEC2EA9D46300CF6F26 /* RethinkSans-ExtraBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Clara Provider/RethinkSans-ExtraBold.ttf"; sourceTree = SOURCE_ROOT; };
-		7B48DBED2EA9D46300CF6F26 /* RethinkSans-ExtraBoldItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Clara Provider/RethinkSans-ExtraBoldItalic.ttf"; sourceTree = SOURCE_ROOT; };
+		7B48DBD62EA9D46200CF6F26 /* clara-provider-app.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "clara-provider-app.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		7B48DBE42EA9D46300CF6F26 /* RethinkSans-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "clara-provider-app/RethinkSans-Regular.ttf"; sourceTree = SOURCE_ROOT; };
+		7B48DBE52EA9D46300CF6F26 /* RethinkSans-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "clara-provider-app/RethinkSans-Bold.ttf"; sourceTree = SOURCE_ROOT; };
+		7B48DBE62EA9D46300CF6F26 /* RethinkSans-Italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "clara-provider-app/RethinkSans-Italic.ttf"; sourceTree = SOURCE_ROOT; };
+		7B48DBE72EA9D46300CF6F26 /* RethinkSans-BoldItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "clara-provider-app/RethinkSans-BoldItalic.ttf"; sourceTree = SOURCE_ROOT; };
+		7B48DBE82EA9D46300CF6F26 /* RethinkSans-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "clara-provider-app/RethinkSans-Medium.ttf"; sourceTree = SOURCE_ROOT; };
+		7B48DBE92EA9D46300CF6F26 /* RethinkSans-MediumItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "clara-provider-app/RethinkSans-MediumItalic.ttf"; sourceTree = SOURCE_ROOT; };
+		7B48DBEA2EA9D46300CF6F26 /* RethinkSans-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "clara-provider-app/RethinkSans-SemiBold.ttf"; sourceTree = SOURCE_ROOT; };
+		7B48DBEB2EA9D46300CF6F26 /* RethinkSans-SemiBoldItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "clara-provider-app/RethinkSans-SemiBoldItalic.ttf"; sourceTree = SOURCE_ROOT; };
+		7B48DBEC2EA9D46300CF6F26 /* RethinkSans-ExtraBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "clara-provider-app/RethinkSans-ExtraBold.ttf"; sourceTree = SOURCE_ROOT; };
+		7B48DBED2EA9D46300CF6F26 /* RethinkSans-ExtraBoldItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "clara-provider-app/RethinkSans-ExtraBoldItalic.ttf"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		7B48DBD82EA9D46200CF6F26 /* Clara Provider */ = {
+		7B48DBD82EA9D46200CF6F26 /* clara-provider-app */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "Clara Provider";
+			path = "clara-provider-app";
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -42,7 +42,7 @@
 		7B48DBCD2EA9D46200CF6F26 = {
 			isa = PBXGroup;
 			children = (
-				7B48DBD82EA9D46200CF6F26 /* Clara Provider */,
+				7B48DBD82EA9D46200CF6F26 /* clara-provider-app */,
 				7B48DBD72EA9D46200CF6F26 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -50,7 +50,7 @@
 		7B48DBD72EA9D46200CF6F26 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				7B48DBD62EA9D46200CF6F26 /* Clara Provider.app */,
+				7B48DBD62EA9D46200CF6F26 /* clara-provider-app.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -58,9 +58,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		7B48DBD52EA9D46200CF6F26 /* Clara Provider */ = {
+		7B48DBD52EA9D46200CF6F26 /* clara-provider-app */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 7B48DBE12EA9D46300CF6F26 /* Build configuration list for PBXNativeTarget "Clara Provider" */;
+			buildConfigurationList = 7B48DBE12EA9D46300CF6F26 /* Build configuration list for PBXNativeTarget "clara-provider-app" */;
 			buildPhases = (
 				7B48DBD22EA9D46200CF6F26 /* Sources */,
 				7B48DBD32EA9D46200CF6F26 /* Frameworks */,
@@ -71,13 +71,13 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				7B48DBD82EA9D46200CF6F26 /* Clara Provider */,
+				7B48DBD82EA9D46200CF6F26 /* clara-provider-app */,
 			);
-			name = "Clara Provider";
+			name = "clara-provider-app";
 			packageProductDependencies = (
 			);
-			productName = "Clara Provider";
-			productReference = 7B48DBD62EA9D46200CF6F26 /* Clara Provider.app */;
+			productName = "clara-provider-app";
+			productReference = 7B48DBD62EA9D46200CF6F26 /* clara-provider-app.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -95,7 +95,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 7B48DBD12EA9D46200CF6F26 /* Build configuration list for PBXProject "Clara Provider" */;
+			buildConfigurationList = 7B48DBD12EA9D46200CF6F26 /* Build configuration list for PBXProject "clara-provider-app" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -109,7 +109,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				7B48DBD52EA9D46200CF6F26 /* Clara Provider */,
+				7B48DBD52EA9D46200CF6F26 /* clara-provider-app */,
 			);
 		};
 /* End PBXProject section */
@@ -277,7 +277,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleIconName = AppIcon;
-				INFOPLIST_KEY_NSFaceIDUsageDescription = "Face ID is used to unlock the Clara Provider app and protect patient data.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Face ID is used to unlock the clara-provider-app and protect patient data.";
 				INFOPLIST_KEY_UIAppFonts = (
 					"RethinkSans-Regular.ttf",
 					"RethinkSans-Bold.ttf",
@@ -323,7 +323,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleIconName = AppIcon;
-				INFOPLIST_KEY_NSFaceIDUsageDescription = "Face ID is used to unlock the Clara Provider app and protect patient data.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Face ID is used to unlock the clara-provider-app and protect patient data.";
 				INFOPLIST_KEY_UIAppFonts = (
 					"RethinkSans-Regular.ttf",
 					"RethinkSans-Bold.ttf",
@@ -361,7 +361,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		7B48DBD12EA9D46200CF6F26 /* Build configuration list for PBXProject "Clara Provider" */ = {
+		7B48DBD12EA9D46200CF6F26 /* Build configuration list for PBXProject "clara-provider-app" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				7B48DBDF2EA9D46300CF6F26 /* Debug */,
@@ -370,7 +370,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		7B48DBE12EA9D46300CF6F26 /* Build configuration list for PBXNativeTarget "Clara Provider" */ = {
+		7B48DBE12EA9D46300CF6F26 /* Build configuration list for PBXNativeTarget "clara-provider-app" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				7B48DBE22EA9D46300CF6F26 /* Debug */,

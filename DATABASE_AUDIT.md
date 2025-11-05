@@ -1,4 +1,4 @@
-# Clara Provider iOS - Database Audit Report
+# clara-provider-app iOS - Database Audit Report
 
 **Date**: November 2, 2025
 **Database**: Supabase (dmfsaoawhomuxabhdubw)

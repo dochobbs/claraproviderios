@@ -1,4 +1,4 @@
-# Clara Provider iOS - Data Extraction Summary
+# clara-provider-app iOS - Data Extraction Summary
 
 **Quick Reference**: What data is available and how to use it
 

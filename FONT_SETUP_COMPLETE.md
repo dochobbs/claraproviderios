@@ -3,21 +3,21 @@
 ## What Was Done
 
 1. **Copied font files** from the patient app to the provider app:
-   - `RethinkSans-Regular.ttf` → `Clara Provider/RethinkSans-Regular.ttf`
-   - `RethinkSans-Bold.ttf` → `Clara Provider/RethinkSans-Bold.ttf`
+   - `RethinkSans-Regular.ttf` → `clara-provider-app/RethinkSans-Regular.ttf`
+   - `RethinkSans-Bold.ttf` → `clara-provider-app/RethinkSans-Bold.ttf`
 
 2. **Registered fonts in Info.plist** via build settings:
    - Added `INFOPLIST_KEY_UIAppFonts` with both font files to Debug and Release configurations
    - Fonts will be automatically included in the app bundle
 
 3. **Project uses File System Synchronization**:
-   - This project uses `PBXFileSystemSynchronizedRootGroup`, which means Xcode automatically includes files in the "Clara Provider" directory
+   - This project uses `PBXFileSystemSynchronizedRootGroup`, which means Xcode automatically includes files in the "clara-provider-app" directory
    - The fonts should be automatically included in the build
 
 ## Verification Steps
 
 1. **Open the project in Xcode**:
-   - The fonts should appear in the Project Navigator under "Clara Provider"
+   - The fonts should appear in the Project Navigator under "clara-provider-app"
    - They should be automatically included (no manual "Add to Target" needed)
 
 2. **Verify fonts are in the bundle**:
@@ -51,7 +51,7 @@ If fonts still don't appear:
    ```
 
 4. **Check Build Phases**:
-   - In Xcode, select project → Target "Clara Provider" → Build Phases
+   - In Xcode, select project → Target "clara-provider-app" → Build Phases
    - Expand "Copy Bundle Resources"
    - Verify both `.ttf` files are listed
 

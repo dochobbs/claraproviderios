@@ -1,4 +1,4 @@
-# Clara Provider iOS - Implementation Examples
+# clara-provider-app iOS - Implementation Examples
 
 Complete code examples for implementing the Priority 1 features from the roadmap.
 

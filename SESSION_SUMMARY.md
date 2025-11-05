@@ -1,4 +1,4 @@
-# Clara Provider iOS - Session Summary
+# clara-provider-app iOS - Session Summary
 
 **Session Date:** November 4, 2025
 **Duration:** ~8 hours of development + 20 hours of code review

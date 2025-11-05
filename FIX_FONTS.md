@@ -8,7 +8,7 @@ The fonts are showing question marks because they need to be explicitly added to
 
 2. **Open the File Inspector** (right panel, or press ⌥⌘1)
 
-3. **Under "Target Membership"**, make sure **"Clara Provider"** is checked ✅
+3. **Under "Target Membership"**, make sure **"clara-provider-app"** is checked ✅
 
 4. **Clean and rebuild** (Product → Clean Build Folder, then Product → Build)
 
@@ -16,7 +16,7 @@ The fonts are showing question marks because they need to be explicitly added to
 
 If the above doesn't work, you can create a Resources folder:
 
-1. Right-click on "Clara Provider" folder in Project Navigator
+1. Right-click on "clara-provider-app" folder in Project Navigator
 2. Select "New Group" → name it "Resources"
 3. Drag the two `.ttf` files into the Resources folder
 4. Make sure Target Membership is checked
