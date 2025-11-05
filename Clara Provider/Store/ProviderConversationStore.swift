@@ -189,7 +189,7 @@ class ProviderConversationStore: ObservableObject {
         }
 
         // If already cached, use it; otherwise fetch from server
-        if let cached = conversationDetailsCache[id] {
+        if conversationDetailsCache[id] != nil {
             await MainActor.run {
                 isLoading = false
             }
