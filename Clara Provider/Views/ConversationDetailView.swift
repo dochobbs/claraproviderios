@@ -463,9 +463,11 @@ enum ProviderResponseType: String, CaseIterable {
         }
     }
 
-    /// Default message template for Message Dr Hobbs option
+    /// Default message template for auto-fill options
     var defaultMessage: String {
         switch self {
+        case .agree:
+            return "Clara did great! I agree with what she shared with you. If things change, both she and I are both here"
         case .messageDrHobbs:
             return "Dr Hobbs would love to connect with you on this. Nothing urgent, just to check in. Would you message him at xxx-xxx-xxxx?"
         default:
@@ -503,8 +505,8 @@ struct ProviderReplyBox: View {
                     .tint(.primaryCoral)
                     .onChange(of: selectedResponse) { _, newValue in
                         HapticFeedback.selection()
-                        // Auto-fill reply text for Message Dr Hobbs option
-                        if newValue == .messageDrHobbs && replyText.isEmpty {
+                        // Auto-fill reply text for options that have default messages
+                        if replyText.isEmpty && !newValue.defaultMessage.isEmpty {
                             replyText = newValue.defaultMessage
                         }
                     }

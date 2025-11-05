@@ -174,22 +174,35 @@ class ProviderConversationStore: ObservableObject {
     
     /// Load full conversation details for a specific conversation
     func loadConversationDetails(id: UUID) async {
-        // Always fetch fresh data from server (don't use cache)
-        // This ensures we get the latest status after updates
-        await MainActor.run {
-            isLoading = true
-            errorMessage = nil
-            // Clear cache to force refresh
-            conversationDetailsCache.removeValue(forKey: id)
+        // CRITICAL FIX: Don't clear cache if conversation is already cached
+        // This prevents losing flagged status when navigating back into a conversation
+        // Only clear cache if conversation is not in memory (first load)
+        let shouldLoadFromServer = conversationDetailsCache[id] == nil && !reviewRequests.contains { req in
+            if let storedId = UUID(uuidString: req.conversationId) {
+                return storedId == id
+            }
+            return req.conversationId.lowercased() == id.uuidString.lowercased()
         }
-        
+
+        await MainActor.run {
+            isLoading = !shouldLoadFromServer // Only set loading if we're actually fetching
+        }
+
+        // If already cached, use it; otherwise fetch from server
+        if let cached = conversationDetailsCache[id] {
+            await MainActor.run {
+                isLoading = false
+            }
+            return
+        }
+
         do {
             if let details = try await supabaseService.fetchConversationDetails(conversationId: id) {
                 await MainActor.run {
                     conversationDetailsCache[id] = details
-                    
+
                     // Update in reviewRequests if present
-                    if let index = reviewRequests.firstIndex(where: { 
+                    if let index = reviewRequests.firstIndex(where: {
                         if let storedId = UUID(uuidString: $0.conversationId) {
                             return storedId == id
                         }
@@ -197,7 +210,7 @@ class ProviderConversationStore: ObservableObject {
                     }) {
                         reviewRequests[index] = details
                     }
-                    
+
                     isLoading = false
                 }
             } else {
