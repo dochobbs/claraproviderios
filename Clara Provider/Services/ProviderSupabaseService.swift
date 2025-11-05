@@ -15,7 +15,7 @@ class ProviderSupabaseService: SupabaseServiceBase {
     /// Fetch all provider review requests, optionally filtered by status
     func fetchProviderReviewRequests(status: String? = nil) async throws -> [ProviderReviewRequestDetail] {
         var queryParams: [String] = [
-            "select=id,user_id,conversation_id,conversation_title,child_name,child_age,child_dob,triage_outcome,conversation_summary,conversation_messages,provider_name,provider_response,provider_urgency,status,responded_at,created_at",
+            "select=id,user_id,conversation_id,conversation_title,child_name,child_age,child_dob,triage_outcome,conversation_summary,conversation_messages,provider_name,provider_response,provider_urgency,status,flag_reason,responded_at,created_at",
             "order=created_at.desc"
         ]
         
@@ -71,7 +71,7 @@ class ProviderSupabaseService: SupabaseServiceBase {
     // MARK: - Fetch Review For Conversation
     func fetchReviewForConversation(conversationId: UUID) async throws -> ProviderReviewRequestDetail? {
         let idString = conversationId.uuidString.lowercased()
-        let urlString = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(idString)&select=id,user_id,conversation_id,conversation_title,child_name,child_age,child_dob,triage_outcome,conversation_summary,conversation_messages,provider_name,provider_response,provider_urgency,status,responded_at,created_at&limit=1"
+        let urlString = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(idString)&select=id,user_id,conversation_id,conversation_title,child_name,child_age,child_dob,triage_outcome,conversation_summary,conversation_messages,provider_name,provider_response,provider_urgency,status,flag_reason,responded_at,created_at&limit=1"
         guard let url = URL(string: urlString) else { throw SupabaseError.invalidResponse }
         let request = createRequest(url: url, method: "GET")
         let results = try await executeRequest(request, responseType: [ProviderReviewRequestDetail].self)
@@ -89,7 +89,7 @@ class ProviderSupabaseService: SupabaseServiceBase {
         
         for (index, format) in formats.enumerated() {
             // Don't URL encode - UUIDs are valid in URLs, and encoding would break dashes
-            let urlString = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(format)&select=id,user_id,conversation_id,conversation_title,child_name,child_age,child_dob,triage_outcome,conversation_summary,conversation_messages,provider_name,provider_response,provider_urgency,status,responded_at,created_at&limit=1"
+            let urlString = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(format)&select=id,user_id,conversation_id,conversation_title,child_name,child_age,child_dob,triage_outcome,conversation_summary,conversation_messages,provider_name,provider_response,provider_urgency,status,flag_reason,responded_at,created_at&limit=1"
 
             os_log("[ProviderSupabaseService] Fetching conversation details (attempt %d/%d)", log: .default, type: .debug, index + 1, formats.count)
 
