@@ -14,12 +14,13 @@ struct ProviderReviewRequestDetail: Codable, Identifiable, Equatable {
     let conversationSummary: String?
     let conversationMessages: [ConversationMessage]?
     var status: String?  // pending, responded, flagged, escalated
+    var flagReason: String?  // Reason for flagging, if flagged
     let providerName: String?
     let providerResponse: String?
     let providerUrgency: String?
     let respondedAt: String?
     let createdAt: String?
-    
+
     enum CodingKeys: String, CodingKey {
         case id
         case userId = "user_id"
@@ -32,6 +33,7 @@ struct ProviderReviewRequestDetail: Codable, Identifiable, Equatable {
         case conversationSummary = "conversation_summary"
         case conversationMessages = "conversation_messages"
         case status
+        case flagReason = "flag_reason"
         case providerName = "provider_name"
         case providerResponse = "provider_response"
         case providerUrgency = "provider_urgency"
@@ -56,6 +58,7 @@ struct ProviderReviewRequestDetail: Codable, Identifiable, Equatable {
         triageOutcome = try container.decodeIfPresent(String.self, forKey: .triageOutcome)
         conversationSummary = try container.decodeIfPresent(String.self, forKey: .conversationSummary)
         status = try container.decodeIfPresent(String.self, forKey: .status)
+        flagReason = try container.decodeIfPresent(String.self, forKey: .flagReason)
         providerName = try container.decodeIfPresent(String.self, forKey: .providerName)
         providerResponse = try container.decodeIfPresent(String.self, forKey: .providerResponse)
         providerUrgency = try container.decodeIfPresent(String.self, forKey: .providerUrgency)
@@ -90,6 +93,7 @@ struct ProviderReviewRequestDetail: Codable, Identifiable, Equatable {
         conversationSummary: String? = nil,
         conversationMessages: [ConversationMessage]? = nil,
         status: String? = nil,
+        flagReason: String? = nil,
         providerName: String? = nil,
         providerResponse: String? = nil,
         providerUrgency: String? = nil,
@@ -107,6 +111,7 @@ struct ProviderReviewRequestDetail: Codable, Identifiable, Equatable {
         self.conversationSummary = conversationSummary
         self.conversationMessages = conversationMessages
         self.status = status
+        self.flagReason = flagReason
         self.providerName = providerName
         self.providerResponse = providerResponse
         self.providerUrgency = providerUrgency

@@ -54,13 +54,21 @@ struct ConversationDetailView: View {
                             ForEach(messages) { message in
                                 MessageBubbleView(message: message)
                             }
-                            
+
                             // Review Result - appended at bottom after messages
                             // Only show if review is completed (has a status other than pending)
-                            if let review = conversationReview, 
+                            if let review = conversationReview,
                                let status = review.status,
                                status.lowercased() != "pending" {
                                 ReviewResultView(review: review)
+                            }
+
+                            // Flag Reason - display if conversation is flagged with a reason
+                            if let review = conversationReview,
+                               review.status?.lowercased() == "flagged",
+                               let reason = review.flagReason,
+                               !reason.isEmpty {
+                                FlagReasonView(review: review)
                             }
                         }
                         .padding(.horizontal)
@@ -198,6 +206,15 @@ struct ConversationDetailView: View {
             replyText = selectedResponse.defaultMessage
             Task {
                 await loadConversationData()
+            }
+        }
+        .onChange(of: showingFlagModal) { _, isShowing in
+            // When flag modal is opened, populate existing flag reason if available
+            if isShowing, let detail = conversationDetail, let reason = detail.flagReason {
+                flagReason = reason
+            } else if !isShowing {
+                // Clear flag reason when closing modal
+                flagReason = ""
             }
         }
         .refreshable {
@@ -417,18 +434,29 @@ struct ConversationDetailView: View {
 
         Task {
             do {
-                try await store.flagConversation(id: conversationId, reason: flagReason.isEmpty ? nil : flagReason)
+                let trimmedReason = flagReason.trimmingCharacters(in: .whitespacesAndNewlines)
+                try await store.flagConversation(id: conversationId, reason: trimmedReason.isEmpty ? nil : trimmedReason)
 
                 await MainActor.run {
                     isFlagging = false
                     showingFlagModal = false
-                    flagReason = ""
-                    // Update local conversation detail to reflect flagged status
+                    // Update local conversation detail to reflect flagged status and reason
                     if var detail = conversationDetail {
                         detail.status = "flagged"
+                        if !trimmedReason.isEmpty {
+                            detail.flagReason = trimmedReason
+                        }
                         conversationDetail = detail
                     }
-                    HapticFeedback.success()
+                    // Reload review to get the updated flag reason from store
+                    Task {
+                        let updatedReview = await store.fetchReviewForConversation(id: conversationId)
+                        await MainActor.run {
+                            conversationReview = updatedReview
+                            flagReason = ""
+                            HapticFeedback.success()
+                        }
+                    }
                 }
             } catch {
                 await MainActor.run {
@@ -850,7 +878,7 @@ struct ClaraMarkdownView: View {
 
 struct ReviewResultView: View {
     let review: ProviderReviewRequestDetail
-    
+
     var statusColor: Color {
         switch review.status?.lowercased() {
         case "responded":
@@ -863,7 +891,7 @@ struct ReviewResultView: View {
             return .blue
         }
     }
-    
+
     var backgroundColor: Color {
         switch review.status?.lowercased() {
         case "responded":
@@ -876,32 +904,32 @@ struct ReviewResultView: View {
             return Color.primaryCoral.opacity(0.1)
         }
     }
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Spacer()
             }
-            
+
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
                     Image(systemName: "doc.text.magnifyingglass")
                         .foregroundColor(statusColor)
                         .font(.title3)
-                    
+
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Provider Review")
                             .font(.rethinkSans(12, relativeTo: .caption))
                             .foregroundColor(.secondary)
                             .textCase(.uppercase)
-                        
+
                         Text(review.status?.capitalized ?? "Pending")
                             .font(.rethinkSansBold(15, relativeTo: .subheadline))
                             .foregroundColor(statusColor)
                     }
-                    
+
                     Spacer()
-                    
+
                     if let respondedAt = review.respondedAt,
                        let date = ISO8601DateFormatter().date(from: respondedAt) {
                         Text(formatTime(date))
@@ -909,7 +937,7 @@ struct ReviewResultView: View {
                             .foregroundColor(.secondary)
                     }
                 }
-                
+
                 if let response = review.providerResponse, !response.isEmpty {
                     Divider()
                     Text(response)
@@ -927,11 +955,57 @@ struct ReviewResultView: View {
         }
         .padding(.horizontal)
     }
-    
+
     private func formatTime(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
         return formatter.string(from: date)
+    }
+}
+
+// MARK: - Flag Reason View
+struct FlagReasonView: View {
+    let review: ProviderReviewRequestDetail
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Spacer()
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Image(systemName: "flag.fill")
+                        .foregroundColor(.orange)
+                        .font(.title3)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Flag Reason")
+                            .font(.rethinkSans(12, relativeTo: .caption))
+                            .foregroundColor(.secondary)
+                            .textCase(.uppercase)
+                    }
+
+                    Spacer()
+                }
+
+                if let reason = review.flagReason, !reason.isEmpty {
+                    Divider()
+                    Text(reason)
+                        .font(.system(.subheadline, design: .monospaced))
+                        .foregroundColor(.primary)
+                        .lineLimit(nil)
+                }
+            }
+            .padding(12)
+            .background(Color.orange.opacity(0.1))
+            .cornerRadius(16)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+            )
+        }
+        .padding(.horizontal)
     }
 }
 

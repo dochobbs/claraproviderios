@@ -446,8 +446,8 @@ class ProviderConversationStore: ObservableObject {
 
     /// Flag a conversation for review with optional reason
     func flagConversation(id: UUID, reason: String? = nil) async throws {
-        // FEATURE: Flag conversation for provider attention
-        // Store status change locally first, then sync to backend
+        // FEATURE: Flag conversation for provider attention with optional reason
+        // Store status and reason locally, then sync to backend
 
         let trimmedReason = reason?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
@@ -476,17 +476,25 @@ class ProviderConversationStore: ObservableObject {
                     return $0.conversationId.lowercased() == id.uuidString.lowercased()
                 }) {
                     reviewRequests[index].status = "flagged"
+                    // Store flag reason if provided
+                    if !trimmedReason.isEmpty {
+                        reviewRequests[index].flagReason = trimmedReason
+                    }
                 }
 
                 // Update in cache
                 if var cached = conversationDetailsCache[id] {
                     cached.status = "flagged"
+                    // Store flag reason if provided
+                    if !trimmedReason.isEmpty {
+                        cached.flagReason = trimmedReason
+                    }
                     conversationDetailsCache[id] = cached
                 }
 
                 isLoading = false
-                os_log("[ProviderConversationStore] Conversation flagged: %{public}s",
-                       log: .default, type: .info, id.uuidString)
+                os_log("[ProviderConversationStore] Conversation flagged: %{public}s, reason: %{public}s",
+                       log: .default, type: .info, id.uuidString, trimmedReason.isEmpty ? "(none)" : trimmedReason)
             }
         } catch {
             await MainActor.run {
