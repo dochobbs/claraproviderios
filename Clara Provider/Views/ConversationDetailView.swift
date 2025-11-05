@@ -494,7 +494,7 @@ enum ProviderResponseType: String, CaseIterable {
         case .agree:
             return "I agree! Clara did great! If things change, both she and I are here."
         case .messageDrHobbs:
-            return "Dr Hobbs would love to connect with you on this. Nothing urgent, just to check in. Would you message him at xxx-xxx-xxxx?"
+            return "Dr Hobbs would love to connect with you on this. Nothing urgent, just to check in. Would you message him at 612-208-7283?"
         default:
             return ""
         }
