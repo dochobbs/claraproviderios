@@ -112,30 +112,23 @@ struct ConversationDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                HStack(spacing: 12) {
-                    // Show flagged indicator if status is flagged
-                    if let detail = conversationDetail, detail.status?.lowercased() == "flagged" {
-                        HStack(spacing: 4) {
-                            Image(systemName: "flag.fill")
-                                .font(.system(size: 12, weight: .semibold))
-                            Text("Flagged")
-                                .font(.rethinkSans(12, relativeTo: .caption))
+                // Flag button - always show, filled if flagged, empty if not
+                if let detail = conversationDetail {
+                    Button(action: {
+                        if detail.status?.lowercased() == "flagged" {
+                            // Unflag
+                            Task {
+                                await unflagConversation()
+                            }
+                        } else {
+                            // Flag
+                            showingFlagModal = true
                         }
-                        .foregroundColor(.orange)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color.orange.opacity(0.15))
-                        .cornerRadius(6)
+                    }) {
+                        Image(systemName: detail.status?.lowercased() == "flagged" ? "flag.fill" : "flag")
+                            .foregroundColor(.orange)
                     }
-
-                    // Flag button - only show if not already flagged
-                    if let detail = conversationDetail, detail.status?.lowercased() != "flagged" {
-                        Button(action: { showingFlagModal = true }) {
-                            Image(systemName: "flag")
-                                .foregroundColor(.orange)
-                        }
-                        .accessibilityLabel("Flag conversation")
-                    }
+                    .accessibilityLabel(detail.status?.lowercased() == "flagged" ? "Unflag conversation" : "Flag conversation")
                 }
             }
         }
@@ -464,6 +457,37 @@ struct ConversationDetailView: View {
                     errorMessage = "Failed to flag conversation"
                     HapticFeedback.error()
                 }
+            }
+        }
+    }
+
+    private func unflagConversation() async {
+        HapticFeedback.medium()
+
+        do {
+            // Update status back to "pending" and remove flag reason
+            try await store.unflagConversation(id: conversationId)
+
+            await MainActor.run {
+                // Update local conversation detail to reflect unflagged status
+                if var detail = conversationDetail {
+                    detail.status = "pending"
+                    detail.flagReason = nil
+                    conversationDetail = detail
+                }
+                // Reload review to get the updated status from store
+                Task {
+                    let updatedReview = await store.fetchReviewForConversation(id: conversationId)
+                    await MainActor.run {
+                        conversationReview = updatedReview
+                        HapticFeedback.success()
+                    }
+                }
+            }
+        } catch {
+            await MainActor.run {
+                errorMessage = "Failed to unflag conversation"
+                HapticFeedback.error()
             }
         }
     }

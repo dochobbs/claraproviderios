@@ -507,6 +507,38 @@ class ProviderConversationStore: ObservableObject {
         }
     }
 
+    /// Unflag a conversation and remove its flag reason
+    func unflagConversation(id: UUID) async throws {
+        // Update conversation status back to "pending" via Supabase
+        try await supabaseService.updateReviewStatus(id: id.uuidString, status: "pending")
+
+        // Update local cache
+        await MainActor.run {
+            // Update in reviewRequests list
+            if let index = reviewRequests.firstIndex(where: {
+                if let storedId = UUID(uuidString: $0.conversationId) {
+                    return storedId == id
+                }
+                return $0.conversationId.lowercased() == id.uuidString.lowercased()
+            }) {
+                reviewRequests[index].status = "pending"
+                // Remove flag reason
+                reviewRequests[index].flagReason = nil
+            }
+
+            // Update in cache
+            if var cached = conversationDetailsCache[id] {
+                cached.status = "pending"
+                // Remove flag reason
+                cached.flagReason = nil
+                conversationDetailsCache[id] = cached
+            }
+
+            os_log("[ProviderConversationStore] Conversation unflagged: %{public}s",
+                   log: .default, type: .info, id.uuidString)
+        }
+    }
+
     // MARK: - Refresh Conversation
 
     /// Refresh a specific conversation
