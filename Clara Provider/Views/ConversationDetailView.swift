@@ -56,19 +56,12 @@ struct ConversationDetailView: View {
                             }
 
                             // Review Result - appended at bottom after messages
+                            // Includes flag reason if conversation is flagged
                             // Only show if review is completed (has a status other than pending)
                             if let review = conversationReview,
                                let status = review.status,
                                status.lowercased() != "pending" {
                                 ReviewResultView(review: review)
-                            }
-
-                            // Flag Reason - display if conversation is flagged with a reason
-                            if let review = conversationReview,
-                               review.status?.lowercased() == "flagged",
-                               let reason = review.flagReason,
-                               !reason.isEmpty {
-                                FlagReasonView(review: review)
                             }
                         }
                         .padding(.horizontal)
@@ -465,17 +458,21 @@ struct ConversationDetailView: View {
         HapticFeedback.medium()
 
         do {
-            // Update status back to "pending" and remove flag reason
+            // Remove flag and flag reason, but preserve review response
             try await store.unflagConversation(id: conversationId)
 
             await MainActor.run {
-                // Update local conversation detail to reflect unflagged status
+                // Update local conversation detail - only remove flag, keep review info
                 if var detail = conversationDetail {
-                    detail.status = "pending"
+                    // Only change status if currently flagged
+                    if detail.status?.lowercased() == "flagged" {
+                        detail.status = "pending"
+                    }
+                    // Remove only the flag reason, keep providerResponse (review reason)
                     detail.flagReason = nil
                     conversationDetail = detail
                 }
-                // Reload review to get the updated status from store
+                // Reload review to get the updated state from store
                 Task {
                     let updatedReview = await store.fetchReviewForConversation(id: conversationId)
                     await MainActor.run {
@@ -968,6 +965,27 @@ struct ReviewResultView: View {
                         .font(.system(.subheadline, design: .monospaced))
                         .foregroundColor(.primary)
                 }
+
+                // Display flag reason under review reason if flagged
+                if let reason = review.flagReason, !reason.isEmpty {
+                    Divider()
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "flag.fill")
+                                .foregroundColor(.orange)
+                                .font(.caption)
+
+                            Text("Reason for Flag")
+                                .font(.system(.caption, design: .monospaced))
+                                .foregroundColor(.orange)
+                                .fontWeight(.semibold)
+                        }
+
+                        Text(reason)
+                            .font(.system(.subheadline, design: .monospaced))
+                            .foregroundColor(.primary)
+                    }
+                }
             }
             .padding(12)
             .background(backgroundColor)
@@ -984,52 +1002,6 @@ struct ReviewResultView: View {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
         return formatter.string(from: date)
-    }
-}
-
-// MARK: - Flag Reason View
-struct FlagReasonView: View {
-    let review: ProviderReviewRequestDetail
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Spacer()
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 8) {
-                    Image(systemName: "flag.fill")
-                        .foregroundColor(.orange)
-                        .font(.title3)
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Flag Reason")
-                            .font(.rethinkSans(12, relativeTo: .caption))
-                            .foregroundColor(.secondary)
-                            .textCase(.uppercase)
-                    }
-
-                    Spacer()
-                }
-
-                if let reason = review.flagReason, !reason.isEmpty {
-                    Divider()
-                    Text(reason)
-                        .font(.system(.subheadline, design: .monospaced))
-                        .foregroundColor(.primary)
-                        .lineLimit(nil)
-                }
-            }
-            .padding(12)
-            .background(Color.orange.opacity(0.1))
-            .cornerRadius(16)
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color.orange.opacity(0.3), lineWidth: 1)
-            )
-        }
-        .padding(.horizontal)
     }
 }
 

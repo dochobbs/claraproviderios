@@ -508,9 +508,23 @@ class ProviderConversationStore: ObservableObject {
     }
 
     /// Unflag a conversation and remove its flag reason
+    /// Note: Preserves any existing review status and provider response (review reason)
     func unflagConversation(id: UUID) async throws {
-        // Update conversation status back to "pending" via Supabase
-        try await supabaseService.updateReviewStatus(id: id.uuidString, status: "pending")
+        // Just remove the flag reason - don't change the status
+        // If conversation was flagged with a review response, keep the review response
+
+        // Update local cache first to get current status
+        var currentStatus: String? = nil
+
+        await MainActor.run {
+            // Get current status from cache
+            if let cached = conversationDetailsCache[id] {
+                currentStatus = cached.status == "flagged" ? "pending" : cached.status
+            }
+        }
+
+        // Update via Supabase to change status from "flagged" to "pending" if currently flagged
+        try await supabaseService.updateReviewStatus(id: id.uuidString, status: currentStatus ?? "pending")
 
         // Update local cache
         await MainActor.run {
@@ -521,15 +535,21 @@ class ProviderConversationStore: ObservableObject {
                 }
                 return $0.conversationId.lowercased() == id.uuidString.lowercased()
             }) {
-                reviewRequests[index].status = "pending"
-                // Remove flag reason
+                // Only change status if currently flagged
+                if reviewRequests[index].status?.lowercased() == "flagged" {
+                    reviewRequests[index].status = "pending"
+                }
+                // Remove flag reason but KEEP provider response (review reason)
                 reviewRequests[index].flagReason = nil
             }
 
             // Update in cache
             if var cached = conversationDetailsCache[id] {
-                cached.status = "pending"
-                // Remove flag reason
+                // Only change status if currently flagged
+                if cached.status?.lowercased() == "flagged" {
+                    cached.status = "pending"
+                }
+                // Remove flag reason but KEEP provider response (review reason)
                 cached.flagReason = nil
                 conversationDetailsCache[id] = cached
             }
