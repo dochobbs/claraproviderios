@@ -15,6 +15,9 @@ struct ConversationDetailView: View {
     @State private var conversationReview: ProviderReviewRequestDetail? = nil
     @State private var conversationDetail: ProviderReviewRequestDetail? = nil
     @State private var includeProviderName: Bool = false
+    @State private var showingFlagModal = false
+    @State private var flagReason = ""
+    @State private var isFlagging = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -99,9 +102,76 @@ struct ConversationDetailView: View {
         }
         .navigationTitle(conversationDetail?.conversationTitle ?? "Conversation")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(action: { showingFlagModal = true }) {
+                    Image(systemName: "flag")
+                        .foregroundColor(.orange)
+                }
+                .accessibilityLabel("Flag conversation")
+            }
+        }
         .sheet(isPresented: $showingMessageInput) {
             ProviderMessageInputView(conversationId: conversationId)
                 .environmentObject(store)
+        }
+        .sheet(isPresented: $showingFlagModal) {
+            NavigationStack {
+                VStack(spacing: 20) {
+                    Text("Flag Conversation")
+                        .font(.rethinkSansBold(22, relativeTo: .title2))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Reason (optional)")
+                            .font(.rethinkSansBold(15, relativeTo: .subheadline))
+
+                        TextEditor(text: $flagReason)
+                            .font(.rethinkSans(15, relativeTo: .body))
+                            .frame(minHeight: 80, maxHeight: 150)
+                            .padding(8)
+                            .border(Color.adaptiveSecondaryBackground(for: colorScheme))
+                            .cornerRadius(8)
+                    }
+                    .padding(.horizontal)
+
+                    Text("Character limit: \(flagReason.count)/500")
+                        .font(.rethinkSans(12, relativeTo: .caption))
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .padding(.horizontal)
+
+                    Spacer()
+
+                    Button(action: flagConversation) {
+                        if isFlagging {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        } else {
+                            Text("Flag Conversation")
+                                .font(.rethinkSansBold(17, relativeTo: .body))
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .foregroundColor(.white)
+                    .background(Color.primaryCoral)
+                    .cornerRadius(12)
+                    .disabled(isFlagging || flagReason.count > 500)
+                    .padding()
+                }
+                .background(Color.adaptiveBackground(for: colorScheme))
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button("Cancel") {
+                            showingFlagModal = false
+                            flagReason = ""
+                        }
+                    }
+                }
+            }
         }
         .onAppear {
             Task {
@@ -313,6 +383,30 @@ struct ConversationDetailView: View {
                 await MainActor.run {
                     isSubmitting = false
                     errorMessage = error.localizedDescription
+                    HapticFeedback.error()
+                }
+            }
+        }
+    }
+
+    private func flagConversation() {
+        HapticFeedback.medium()
+        isFlagging = true
+
+        Task {
+            do {
+                try await store.flagConversation(id: conversationId, reason: flagReason.isEmpty ? nil : flagReason)
+
+                await MainActor.run {
+                    isFlagging = false
+                    showingFlagModal = false
+                    flagReason = ""
+                    HapticFeedback.success()
+                }
+            } catch {
+                await MainActor.run {
+                    isFlagging = false
+                    errorMessage = "Failed to flag conversation"
                     HapticFeedback.error()
                 }
             }

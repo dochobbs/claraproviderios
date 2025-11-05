@@ -109,10 +109,12 @@ struct Clara_ProviderApp: App {
         .onChange(of: authManager.state) { _, newState in
             os_log("[Clara_ProviderApp] Auth state changed to: %{public}s", log: .default, type: .info, String(describing: newState))
             if newState != .unlocked {
-                // Clear data when locking the app
-                os_log("[Clara_ProviderApp] App locked, clearing cached data", log: .default, type: .info)
-                store.reviewRequests = []
-                store.selectedConversationId = nil
+                // FIX: Don't clear cached data when app backgrounds
+                // User may return within 12 hours and we want to show cached count
+                // Data is only cleared when session actually expires (12 hour timeout)
+                // Just stop auto-refresh timer to save battery
+                os_log("[Clara_ProviderApp] App locked, stopping auto-refresh", log: .default, type: .info)
+                store.stopAutoRefresh()
             } else {
                 // Force refresh data when unlocking
                 // Use forceRefreshReviewRequests to bypass the 30-second debounce

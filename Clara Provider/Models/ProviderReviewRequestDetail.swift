@@ -13,7 +13,7 @@ struct ProviderReviewRequestDetail: Codable, Identifiable, Equatable {
     let triageOutcome: String?
     let conversationSummary: String?
     let conversationMessages: [ConversationMessage]?
-    let status: String?  // pending, responded, flagged, escalated
+    var status: String?  // pending, responded, flagged, escalated
     let providerName: String?
     let providerResponse: String?
     let providerUrgency: String?

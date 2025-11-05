@@ -4,6 +4,7 @@ import LocalAuthentication
 import CryptoKit
 import Security
 import CommonCrypto
+import os.log
 
 @MainActor
 final class AuthenticationManager: ObservableObject {
@@ -48,6 +49,7 @@ final class AuthenticationManager: ObservableObject {
     private let keychainService = "com.dochobbs.claraprov.auth"
     private let passwordAccount = "providerPasswordHash"
     private let passwordSaltAccount = "providerPasswordSalt"
+    private let lastUnlockedAccount = "lastUnlockedAt"
     private let maxSessionDuration: TimeInterval = 12 * 60 * 60 // 12 hours
 
     // CRITICAL FIX: Password hashing constants for PBKDF2
@@ -80,17 +82,27 @@ final class AuthenticationManager: ObservableObject {
     }
 
     func refreshState() {
+        // CRITICAL FIX: Restore unlock time from Keychain for session persistence
+        // This allows the user to stay logged in for 12 hours even across app restarts
+        if lastUnlockedAt == nil {
+            lastUnlockedAt = fetchLastUnlockedTime()
+        }
+
         if let unlockDate = lastUnlockedAt {
             let elapsed = Date().timeIntervalSince(unlockDate)
             if elapsed >= maxSessionDuration {
+                os_log("[AuthenticationManager] Session expired (%.0f seconds elapsed, max: %.0f)",
+                       log: .default, type: .info, elapsed, maxSessionDuration)
                 lock()
                 return
             }
+            os_log("[AuthenticationManager] Session still valid (%.0f seconds elapsed, max: %.0f)",
+                   log: .default, type: .info, elapsed, maxSessionDuration)
             state = .unlocked
             scheduleSessionExpiry()
             return
         }
-        
+
         if fetchStoredPasswordHash() == nil {
             state = .needsSetup
         } else if state != .unlocked {
@@ -107,6 +119,7 @@ final class AuthenticationManager: ObservableObject {
         sessionTimer = nil
         timerScheduleTime = nil
         lastUnlockedAt = nil
+        clearLastUnlockedTime()  // Clear persisted unlock time from Keychain
 
         if fetchStoredPasswordHash() != nil {
             state = .locked
@@ -297,7 +310,9 @@ final class AuthenticationManager: ObservableObject {
     }
 
     private func startSession() {
-        lastUnlockedAt = Date()
+        let now = Date()
+        lastUnlockedAt = now
+        storeLastUnlockedTime(now)  // Persist to Keychain so it survives app restart
         scheduleSessionExpiry()
     }
 
@@ -380,6 +395,71 @@ final class AuthenticationManager: ObservableObject {
         guard status == errSecSuccess else {
             throw AuthenticationError.keychainFailure
         }
+    }
+
+    // CRITICAL FIX: Persist unlock time to Keychain so it survives app restart
+    // Bug: lastUnlockedAt was stored in memory only, cleared when app terminated
+    // Result: User prompted for password/Face ID on every app launch even within 12-hour window
+    // Fix: Store unlock timestamp in Keychain, restore on app startup
+    private func storeLastUnlockedTime(_ date: Date) {
+        let data = withUnsafeBytes(of: date.timeIntervalSince1970) { Data($0) }
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: keychainService,
+            kSecAttrAccount as String: lastUnlockedAccount
+        ]
+
+        // Delete existing value first
+        SecItemDelete(query as CFDictionary)
+
+        // Store new timestamp
+        var attributes = query
+        attributes[kSecValueData as String] = data
+        let status = SecItemAdd(attributes as CFDictionary, nil)
+
+        if status == errSecSuccess {
+            os_log("[AuthenticationManager] Stored lastUnlockedAt to Keychain", log: .default, type: .debug)
+        } else {
+            os_log("[AuthenticationManager] Failed to store lastUnlockedAt: %d", log: .default, type: .error, status)
+        }
+    }
+
+    private func fetchLastUnlockedTime() -> Date? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: keychainService,
+            kSecAttrAccount as String: lastUnlockedAccount,
+            kSecReturnData as String: true
+        ]
+
+        var item: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        guard status == errSecSuccess, let data = item as? Data else {
+            return nil
+        }
+
+        // Convert bytes back to TimeInterval
+        let timeInterval = data.withUnsafeBytes { buffer -> TimeInterval in
+            guard let bytes = buffer.baseAddress?.assumingMemoryBound(to: TimeInterval.self) else {
+                return 0
+            }
+            return bytes.pointee
+        }
+
+        let date = Date(timeIntervalSince1970: timeInterval)
+        os_log("[AuthenticationManager] Restored lastUnlockedAt from Keychain: %{public}s", log: .default, type: .debug, date.description)
+        return date
+    }
+
+    private func clearLastUnlockedTime() {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: keychainService,
+            kSecAttrAccount as String: lastUnlockedAccount
+        ]
+
+        SecItemDelete(query as CFDictionary)
+        os_log("[AuthenticationManager] Cleared lastUnlockedAt from Keychain", log: .default, type: .debug)
     }
 }
 

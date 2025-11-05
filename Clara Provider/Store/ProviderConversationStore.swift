@@ -76,7 +76,9 @@ class ProviderConversationStore: ObservableObject {
 
         await MainActor.run {
             isLoading = true
-            errorMessage = nil
+            // FIX: Don't auto-clear errorMessage on auto-refresh
+            // Only clear if user explicitly taps retry (not on background refresh)
+            // This prevents error notifications from disappearing unexpectedly
         }
 
         do {
@@ -125,7 +127,8 @@ class ProviderConversationStore: ObservableObject {
     func loadReviewRequests(status: String) async {
         await MainActor.run {
             isLoading = true
-            errorMessage = nil
+            // Don't clear error on filtered load - this may be background operation
+            // User can dismiss error explicitly via alert
         }
         
         do {
@@ -273,7 +276,7 @@ class ProviderConversationStore: ObservableObject {
 
         await MainActor.run {
             isLoading = true
-            errorMessage = nil
+            errorMessage = nil  // Clear errors for user-initiated send action
         }
 
         do {
@@ -426,6 +429,63 @@ class ProviderConversationStore: ObservableObject {
         }
     }
     
+    // MARK: - Flag Conversation
+
+    /// Flag a conversation for review with optional reason
+    func flagConversation(id: UUID, reason: String? = nil) async throws {
+        // FEATURE: Flag conversation for provider attention
+        // Store status change locally first, then sync to backend
+
+        let trimmedReason = reason?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        // Validate reason length if provided
+        if !trimmedReason.isEmpty && trimmedReason.count > 500 {
+            throw NSError(domain: "ProviderConversationStore", code: -1,
+                         userInfo: [NSLocalizedDescriptionKey: "Reason is too long (max 500 characters)"])
+        }
+
+        await MainActor.run {
+            isLoading = true
+            errorMessage = nil
+        }
+
+        do {
+            // Update conversation status to "flagged" via Supabase
+            try await supabaseService.updateReviewStatus(id: id.uuidString, status: "flagged")
+
+            // Update local cache
+            await MainActor.run {
+                // Update in reviewRequests list
+                if let index = reviewRequests.firstIndex(where: {
+                    if let storedId = UUID(uuidString: $0.conversationId) {
+                        return storedId == id
+                    }
+                    return $0.conversationId.lowercased() == id.uuidString.lowercased()
+                }) {
+                    reviewRequests[index].status = "flagged"
+                }
+
+                // Update in cache
+                if var cached = conversationDetailsCache[id] {
+                    cached.status = "flagged"
+                    conversationDetailsCache[id] = cached
+                }
+
+                isLoading = false
+                os_log("[ProviderConversationStore] Conversation flagged: %{public}s",
+                       log: .default, type: .info, id.uuidString)
+            }
+        } catch {
+            await MainActor.run {
+                errorMessage = "Failed to flag conversation: \(error.localizedDescription)"
+                isLoading = false
+                os_log("[ProviderConversationStore] Error flagging conversation: %{public}s",
+                       log: .default, type: .error, error.localizedDescription)
+            }
+            throw error
+        }
+    }
+
     // MARK: - Refresh Conversation
 
     /// Refresh a specific conversation
@@ -479,9 +539,11 @@ class ProviderConversationStore: ObservableObject {
         activeRefreshTask = nil
     }
     
-    /// Manually refresh review requests
+    /// Manually refresh review requests (user-initiated pull-to-refresh)
+    /// Bypass debounce since user explicitly requested the refresh
     func refresh() async {
-        await loadReviewRequests()
+        os_log("[ProviderConversationStore] User initiated pull-to-refresh", log: .default, type: .info)
+        await loadReviewRequests(bypassDebounce: true)
     }
     
     // MARK: - Computed Properties
