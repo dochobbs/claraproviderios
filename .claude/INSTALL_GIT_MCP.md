@@ -10,42 +10,57 @@ Git MCP gives Claude Code real-time access to:
 - Git status and diffs
 - Blame/authorship information
 
-## Installation (2 minutes)
+## Installation Status
 
-### Option 1: Using pip (Easiest)
+**Note:** Git MCP requires Python 3.10+. The official Anthropic MCP Git server is still being packaged and may not be available on PyPI yet.
 
-```bash
-# Install Git MCP server
-pip install mcp-git
+## Installation Options
 
-# Verify it works
-python -m mcp_git --help
-```
-
-### Option 2: From Source
+### Option 1: From Anthropic's Official MCP Servers (Recommended when available)
 
 ```bash
-# Clone the repo
-git clone https://github.com/evalstate/mcp-git.git
-cd mcp-git
+# Once available on PyPI:
+pip install mcp-server-git
 
-# Install in development mode
+# Or from source:
+git clone https://github.com/modelcontextprotocol/servers.git
+cd servers/src/git
 pip install -e .
-
-# Verify
-python -m mcp_git --help
 ```
 
-## Configure Claude Code
+**Requirements:** Python 3.10+
 
-Add to `~/.claude/settings.json`:
+### Option 2: Alternative Community Git MCP Implementations
+
+Several community implementations are available:
+
+```bash
+# Example from GitHub
+git clone https://github.com/modelcontextprotocol/servers.git
+cd servers/src/git
+pip install -e .
+```
+
+### Option 3: Use Enhanced exit_handler.py (No Installation Needed)
+
+Your `/done` command already includes git analysis without requiring Git MCP:
+- Gathers commit data automatically
+- Categorizes commits by type
+- Analyzes file changes
+- Creates comprehensive summaries
+
+No additional installation needed - runs every time you use `/done`
+
+## Configure Claude Code (When Available)
+
+Once Git MCP is installed, add to `~/.claude/settings.json`:
 
 ```json
 {
   "mcpServers": {
     "git": {
       "command": "python",
-      "args": ["-m", "mcp_git"],
+      "args": ["-m", "mcp_server_git"],
       "env": {
         "MCP_GIT_ROOT": "${CLAUDE_PROJECT_DIR}"
       }
