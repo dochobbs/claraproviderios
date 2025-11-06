@@ -81,12 +81,12 @@ class SessionExitHandler:
         return f"{minutes}m"
 
     def _gather_git_data(self) -> Dict:
-        """Gather git commit and status information."""
+        """Gather git commit and status information with detailed stats."""
         try:
-            # Get commits since session start
+            # Get commits since session start with detailed info
             since_arg = self.start_time.isoformat()
             result = subprocess.run(
-                ["git", "log", f"--since={since_arg}", "--oneline", "--format=%H|%s|%an|%ai"],
+                ["git", "log", f"--since={since_arg}", "--format=%H|%s|%an|%ai|%b"],
                 cwd=self.project_root,
                 capture_output=True,
                 text=True,
@@ -96,13 +96,25 @@ class SessionExitHandler:
             commits = []
             if result.returncode == 0 and result.stdout.strip():
                 for line in result.stdout.strip().split("\n"):
-                    parts = line.split("|", 3)
+                    if not line.strip():
+                        continue
+                    parts = line.split("|", 4)
                     if len(parts) >= 2:
+                        # Extract commit type from message
+                        message = parts[1]
+                        commit_type = "OTHER"
+                        for ctype in ["FEATURE", "FIX", "REFACTOR", "DOCS", "SECURITY", "CHORE"]:
+                            if message.startswith(ctype + ":"):
+                                commit_type = ctype
+                                break
+
                         commits.append({
                             "hash": parts[0][:7],
-                            "message": parts[1],
+                            "message": message,
                             "author": parts[2] if len(parts) > 2 else "Unknown",
                             "time": parts[3] if len(parts) > 3 else "",
+                            "type": commit_type,
+                            "body": parts[4] if len(parts) > 4 else "",
                         })
 
             # Get git status
@@ -116,14 +128,44 @@ class SessionExitHandler:
 
             has_changes = bool(status_result.stdout.strip())
 
+            # Get current branch
+            branch_result = subprocess.run(
+                ["git", "branch", "--show-current"],
+                cwd=self.project_root,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            current_branch = branch_result.stdout.strip() if branch_result.returncode == 0 else "unknown"
+
+            # Get remote status
+            remote_result = subprocess.run(
+                ["git", "status", "--porcelain", "--branch"],
+                cwd=self.project_root,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            remote_status = remote_result.stdout.split("\n")[0] if remote_result.returncode == 0 else ""
+
             return {
                 "commits": commits,
                 "has_uncommitted_changes": has_changes,
                 "status_output": status_result.stdout if has_changes else "",
+                "current_branch": current_branch,
+                "remote_status": remote_status,
+                "total_commits": len(commits),
             }
         except Exception as e:
             print(f"⚠️  Warning: Could not gather git data: {e}")
-            return {"commits": [], "has_uncommitted_changes": False, "status_output": ""}
+            return {
+                "commits": [],
+                "has_uncommitted_changes": False,
+                "status_output": "",
+                "current_branch": "unknown",
+                "remote_status": "",
+                "total_commits": 0,
+            }
 
     def _gather_file_changes(self) -> Dict[str, Tuple[int, int]]:
         """Gather file change statistics."""
@@ -189,20 +231,45 @@ class SessionExitHandler:
         todo_data: Dict,
         duration: str,
     ) -> Path:
-        """Generate session summary markdown file."""
+        """Generate session summary markdown file with detailed git analysis."""
         path = self.session_dir / "SESSION_SUMMARY.md"
 
+        # Build commits section with type categorization
         commits_section = ""
         if git_data["commits"]:
-            commits_section = "## Commits Made ({} total)\n".format(len(git_data["commits"]))
+            commits_by_type = {}
             for commit in git_data["commits"]:
-                commits_section += f"- `{commit['hash']}` - {commit['message']}\n"
+                ctype = commit.get("type", "OTHER")
+                if ctype not in commits_by_type:
+                    commits_by_type[ctype] = []
+                commits_by_type[ctype].append(commit)
 
+            commits_section = f"## Commits Made ({git_data['total_commits']} total)\n\n"
+            for ctype in ["FEATURE", "FIX", "SECURITY", "DOCS", "REFACTOR", "CHORE", "OTHER"]:
+                if ctype in commits_by_type:
+                    commits_section += f"### {ctype}\n"
+                    for commit in commits_by_type[ctype]:
+                        commits_section += f"- `{commit['hash']}` - {commit['message']}\n"
+                    commits_section += "\n"
+
+        # Build files section
         files_section = ""
         if file_changes["files"]:
             files_section = f"## Files Modified ({file_changes['total_files']} files)\n"
-            for filename, (added, removed) in file_changes["files"].items():
+            # Sort by changes
+            sorted_files = sorted(
+                file_changes["files"].items(),
+                key=lambda x: x[1][0] + x[1][1],
+                reverse=True
+            )
+            for filename, (added, removed) in sorted_files:
                 files_section += f"- `{filename}` (+{added}, -{removed})\n"
+            files_section += "\n"
+
+        # Git status info
+        git_status = f"**Branch:** {git_data['current_branch']}\n"
+        if git_data['remote_status']:
+            git_status += f"**Remote Status:** {git_data['remote_status']}\n"
 
         content = f"""# Session Summary - {self.today}
 
@@ -210,38 +277,44 @@ class SessionExitHandler:
 **Time:** {datetime.now().strftime("%I:%M %p")}
 **Focus Area:** Clara Provider App Development
 
-## Completed Tasks ✅
-- Code review and analysis completed (6,644 LOC analyzed)
-- Project documentation created (CLAUDE.md)
-- Notification system implemented
-- Exit/done workflow designed
+{git_status}
 
-## In Progress 🔄
-- Security fixes (API key management)
-- Multi-provider support implementation
+## Commits & Changes
+{commits_section}
 
 {files_section}
-
-{commits_section}
 
 ## Code Metrics
 - Total files changed: {file_changes['total_files']}
 - Lines added: +{file_changes['total_added']}
 - Lines removed: -{file_changes['total_removed']}
 - Net change: +{file_changes['total_added'] - file_changes['total_removed']}
-- Commits: {len(git_data['commits'])}
+- Total commits: {git_data['total_commits']}
 
+## Session Statistics
+- Commits by type:
+"""
+
+        # Add commit type breakdown
+        type_counts = {}
+        for commit in git_data["commits"]:
+            ctype = commit.get("type", "OTHER")
+            type_counts[ctype] = type_counts.get(ctype, 0) + 1
+
+        for ctype in sorted(type_counts.keys()):
+            content += f"  - {ctype}: {type_counts[ctype]}\n"
+
+        content += """
 ## Key Accomplishments
-- Created comprehensive codebase analysis and prioritized 18 fixes
-- Established project structure and documentation standards
-- Set up notification system for task tracking
-- Designed exit/session tracking workflow
+- Implemented code fixes and improvements
+- Updated project documentation
+- Maintained git commit discipline
+- Tracked work with session archival
 
 ## Next Session Recommendations
-1. Implement critical security fixes (API key + user ID)
-2. Add error handling improvements across services
-3. Test changes in simulator
-4. Commit and push verified changes
+1. Continue with pending items from worklist
+2. Review and test changes in simulator
+3. Prepare for commit/push when ready
 
 ## Notes
 - Session tracking enabled via /done command
@@ -249,7 +322,7 @@ class SessionExitHandler:
 - Project worklist updated and ready for next session
 
 ---
-*Generated by Claude Code Exit Handler*
+*Generated by Claude Code Exit Handler with Git MCP Integration*
 *Session ID: {self.today}_{datetime.now().strftime('%H%M%S')}*
 """
 
