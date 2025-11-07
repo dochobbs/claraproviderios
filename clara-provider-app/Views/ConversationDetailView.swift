@@ -141,7 +141,7 @@ struct ConversationDetailView: View {
                     }
                     
                     // If no messages but we have a completed review, show it anyway
-                    if messages.isEmpty, 
+                    if allMessages.isEmpty,
                        let review = conversationReview,
                        let status = review.status,
                        status.lowercased() != "pending" {
@@ -552,19 +552,15 @@ struct ConversationDetailView: View {
             // Remove flag and flag reason, but preserve review response
             try await store.unflagConversation(id: conversationId)
 
-            await MainActor.run {
-                // Reload BOTH conversation detail and review from store
-                // This ensures we get the correct restored status (not "pending")
-                Task {
-                    let updatedReview = await store.fetchReviewForConversation(id: conversationId)
-                    if let updatedReview = updatedReview {
-                        await MainActor.run {
-                            // Update both to stay in sync
-                            conversationDetail = updatedReview
-                            conversationReview = updatedReview
-                            HapticFeedback.success()
-                        }
-                    }
+            // Reload BOTH conversation detail and review from store
+            // This ensures we get the correct restored status (not "pending")
+            let updatedReview = await store.fetchReviewForConversation(id: conversationId)
+            if let updatedReview = updatedReview {
+                await MainActor.run {
+                    // Update both to stay in sync
+                    conversationDetail = updatedReview
+                    conversationReview = updatedReview
+                    HapticFeedback.success()
                 }
             }
         } catch {
