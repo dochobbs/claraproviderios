@@ -1097,10 +1097,13 @@ struct ReviewResultView: View {
                 }
 
                 if let response = review.providerResponse, !response.isEmpty {
+                    let _ = os_log("[ReviewResultView] Displaying provider response (length=%d): %{public}s", log: .default, type: .info, response.count, response)
                     Divider()
                     Text(response)
                         .font(.system(.subheadline, design: .monospaced))
                         .foregroundColor(.primary)
+                } else {
+                    let _ = os_log("[ReviewResultView] Provider response is empty or nil - providerResponse=%{public}s", log: .default, type: .debug, review.providerResponse ?? "nil")
                 }
 
                 // Display flag reason under review reason if flagged
