@@ -54,8 +54,8 @@ def delete_test_conversations():
 
 
 def create_demo_conversations():
-    """Create the 6 standard demo patient conversations"""
-    print("\n📝 Creating 6 demo patient conversations...")
+    """Create the 10 standard demo patient conversations"""
+    print("\n📝 Creating 10 demo patient conversations...")
 
     for idx, conv in enumerate(TEST_CONVERSATIONS, 1):
         try:
@@ -99,9 +99,9 @@ def create_demo_conversations():
 
     print("\n✅ Demo data reset complete!")
     print("\n📊 Demo Patients:")
-    print("   3 Pending: Emma Nonesuch (fever), Noah Nonesuch (breathing), Ethan Nonesuch (head injury)")
-    print("   2 Responded: Sophia Nonesuch (vomiting), Liam Nonesuch (ear pain)")
-    print("   1 Flagged: Ava Nonesuch (allergic reaction)")
+    print("   7 Pending: Emma, Noah, Ethan, Olivia, Mason, Isabella, Jackson Nonesuch")
+    print("   2 Responded: Sophia, Liam Nonesuch")
+    print("   1 Flagged: Ava Nonesuch")
 
 
 def main():

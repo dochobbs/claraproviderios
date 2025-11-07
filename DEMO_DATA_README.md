@@ -25,7 +25,7 @@ These scripts create and manage demo/test patient conversations in Supabase for 
 ## Usage
 
 ### Reset Demo Data (Recommended)
-Deletes all test conversations and recreates the 6 standard demo patients:
+Deletes all test conversations and recreates the 10 standard demo patients:
 
 ```bash
 source .venv/bin/activate
@@ -40,7 +40,7 @@ source .venv/bin/activate
 python3 create_test_conversations.py
 ```
 
-## The 6 Demo Patients
+## The 10 Demo Patients
 
 These are the standard demo patients that will be created. All patients have the last name **Nonesuch** for easy identification.
 
@@ -83,6 +83,30 @@ These are the standard demo patients that will be created. All patients have the
 - **Triage:** Urgent
 - **Summary:** Fell 6 feet from monkey bars, brief loss of consciousness (~10 sec), confused, vomited once, complaining of headache.
 - **Use For:** Testing urgent case handling, emergency escalation
+
+### 7. Olivia Nonesuch (18 months old) - PENDING
+- **Chief Complaint:** Persistent diarrhea and diaper rash
+- **Triage:** Routine
+- **Summary:** Watery diarrhea for 3 days, 5-6 episodes per day. Drinking well. Severe diaper rash. No fever. Still playful.
+- **Use For:** Testing routine case handling, basic triage
+
+### 8. Mason Nonesuch (4 years old) - PENDING
+- **Chief Complaint:** Sore throat and refusing to eat
+- **Triage:** Routine
+- **Summary:** Sore throat for 2 days, refusing solids. Low-grade fever (100.4°F). Drinking okay. Possible strep exposure.
+- **Use For:** Testing routine infectious disease cases
+
+### 9. Isabella Nonesuch (8 years old) - PENDING
+- **Chief Complaint:** Ankle injury from soccer
+- **Triage:** Routine
+- **Summary:** Twisted ankle 2 hours ago. Can bear weight but limping. Mild swelling, no deformity.
+- **Use For:** Testing musculoskeletal injury cases
+
+### 10. Jackson Nonesuch (10 months old) - PENDING
+- **Chief Complaint:** Possible ear infection - fussy and pulling ear
+- **Triage:** Routine
+- **Summary:** Fussy for 2 days, pulling right ear. Low fever (100.8°F). Decreased appetite. Recent cold.
+- **Use For:** Testing infant cases, ear infection presentation
 
 ## Workflow Testing Scenarios
 
@@ -146,5 +170,5 @@ This is useful:
 ---
 
 **Last Updated:** November 7, 2025
-**Demo Patient Count:** 6 standard patients (all with last name "Nonesuch")
+**Demo Patient Count:** 10 standard patients (all with last name "Nonesuch")
 **Purpose:** Testing Clara Provider App bug fixes and workflows

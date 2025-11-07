@@ -148,6 +148,96 @@ TEST_CONVERSATIONS = [
             {"role": "clara", "content": "How high was the fall?"},
             {"role": "parent", "content": "About 6 feet onto wood chips."},
         ]
+    },
+    {
+        "child_name": "Olivia Nonesuch",
+        "child_age": "18 months old",
+        "child_dob": "2023-05-20",
+        "conversation_title": "Persistent diarrhea and diaper rash",
+        "triage_outcome": "routine",
+        "conversation_summary": "18-month-old with watery diarrhea for 3 days, 5-6 episodes per day. Drinking well. Severe diaper rash developed. No fever. Still playful and active.",
+        "status": "pending",
+        "messages": [
+            {"role": "parent", "content": "Hi, Olivia Nonesuch has had diarrhea for 3 days now and her diaper area is really red."},
+            {"role": "clara", "content": "I understand that's uncomfortable for her. How many episodes of diarrhea is she having per day?"},
+            {"role": "parent", "content": "About 5 or 6 times. It's really watery."},
+            {"role": "clara", "content": "Is she keeping fluids down? How is she drinking?"},
+            {"role": "parent", "content": "She's drinking fine. Maybe even more than usual because she seems thirsty."},
+            {"role": "clara", "content": "That's good. Does she have a fever?"},
+            {"role": "parent", "content": "No fever. She's actually still playing and seems pretty happy between diaper changes."},
+            {"role": "clara", "content": "How bad is the diaper rash? Is the skin broken or bleeding?"},
+            {"role": "parent", "content": "It's very red and she cries when I wipe her, but I don't see any bleeding."},
+            {"role": "clara", "content": "Has she been around anyone else who's been sick?"},
+            {"role": "parent", "content": "Yes, her older brother had a stomach bug last week."},
+        ]
+    },
+    {
+        "child_name": "Mason Nonesuch",
+        "child_age": "4 years, 8 months old",
+        "child_dob": "2020-03-12",
+        "conversation_title": "Sore throat and refusing to eat",
+        "triage_outcome": "routine",
+        "conversation_summary": "4-year-old with sore throat for 2 days, refusing solid foods. Low-grade fever (100.4°F). Drinking liquids okay. No difficulty breathing or drooling.",
+        "status": "pending",
+        "messages": [
+            {"role": "parent", "content": "Mason Nonesuch has a sore throat and won't eat anything. Should I be worried?"},
+            {"role": "clara", "content": "Sore throats can make eating difficult. Does he have a fever?"},
+            {"role": "parent", "content": "Yes, it's been around 100.4 degrees for the past day."},
+            {"role": "clara", "content": "Is he able to drink liquids?"},
+            {"role": "parent", "content": "Yes, he's drinking juice and water. Just won't eat solid food because he says it hurts."},
+            {"role": "clara", "content": "Can you look at his throat? Do you see any white patches or redness?"},
+            {"role": "parent", "content": "It's hard to get him to open wide, but I can see it's pretty red in the back."},
+            {"role": "clara", "content": "Is he drooling or having any trouble breathing?"},
+            {"role": "parent", "content": "No drooling and breathing seems normal."},
+            {"role": "clara", "content": "Has he been around other kids with strep throat recently?"},
+            {"role": "parent", "content": "Actually yes, there's been strep going around his preschool."},
+        ]
+    },
+    {
+        "child_name": "Isabella Nonesuch",
+        "child_age": "8 years, 5 months old",
+        "child_dob": "2016-06-18",
+        "conversation_title": "Ankle injury from soccer",
+        "triage_outcome": "routine",
+        "conversation_summary": "8-year-old twisted ankle during soccer practice 2 hours ago. Can bear some weight but limping. Mild swelling on outside of ankle. No deformity visible.",
+        "status": "pending",
+        "messages": [
+            {"role": "parent", "content": "Isabella Nonesuch hurt her ankle at soccer practice. She's limping but can walk on it."},
+            {"role": "clara", "content": "When did this happen?"},
+            {"role": "parent", "content": "About 2 hours ago. She was running and twisted it."},
+            {"role": "clara", "content": "Can she put any weight on it at all?"},
+            {"role": "parent", "content": "Yes, she can stand on it but she's limping. She says it hurts when she walks."},
+            {"role": "clara", "content": "Is there any swelling or bruising?"},
+            {"role": "parent", "content": "There's some swelling on the outside of her ankle. No bruising yet."},
+            {"role": "clara", "content": "Does the ankle look deformed or out of place compared to the other ankle?"},
+            {"role": "parent", "content": "No, it looks normal, just a bit puffy."},
+            {"role": "clara", "content": "Have you tried ice or elevation?"},
+            {"role": "parent", "content": "Yes, we've had ice on it for about 20 minutes and she's been sitting with it up."},
+        ]
+    },
+    {
+        "child_name": "Jackson Nonesuch",
+        "child_age": "10 months old",
+        "child_dob": "2024-01-15",
+        "conversation_title": "Possible ear infection - fussy and pulling ear",
+        "triage_outcome": "routine",
+        "conversation_summary": "10-month-old increasingly fussy for 2 days, pulling at right ear. Low fever (100.8°F). Decreased appetite but still taking some bottle. No drainage from ear visible.",
+        "status": "pending",
+        "messages": [
+            {"role": "parent", "content": "Jackson Nonesuch has been really fussy and keeps pulling at his right ear."},
+            {"role": "clara", "content": "Ear pulling can be a sign of discomfort. How long has this been going on?"},
+            {"role": "parent", "content": "About 2 days. He's been more cranky than usual, especially at night."},
+            {"role": "clara", "content": "Does he have a fever?"},
+            {"role": "parent", "content": "Yes, 100.8 this morning. Nothing too high."},
+            {"role": "clara", "content": "Is he eating and drinking normally?"},
+            {"role": "parent", "content": "Not as much as usual. He's taking his bottle but not finishing it like he normally does."},
+            {"role": "clara", "content": "Have you noticed any drainage or fluid coming from his ear?"},
+            {"role": "parent", "content": "No, I don't see anything coming out. Just keeps tugging at it."},
+            {"role": "clara", "content": "Has he had a cold or congestion recently?"},
+            {"role": "parent", "content": "Yes! He had a runny nose last week. It's mostly cleared up now."},
+            {"role": "clara", "content": "Is he sleeping okay or waking up more than usual?"},
+            {"role": "parent", "content": "He's been waking up crying a lot more at night. Last night was rough."},
+        ]
     }
 ]
 
@@ -206,10 +296,10 @@ def create_test_conversations():
         except Exception as e:
             print(f"❌ Error creating conversation {idx}: {e}")
 
-    print("\n✅ Done! Created 6 test conversations")
+    print("\n✅ Done! Created 10 test conversations")
     print("\nStatus breakdown:")
-    print("- 3 pending (Emma Nonesuch, Noah Nonesuch, Ethan Nonesuch)")
-    print("- 2 responded (Sophia Nonesuch, Liam Nonesuch)")
+    print("- 7 pending (Emma, Noah, Ethan, Olivia, Mason, Isabella, Jackson Nonesuch)")
+    print("- 2 responded (Sophia, Liam Nonesuch)")
     print("- 1 flagged (Ava Nonesuch)")
 
 
