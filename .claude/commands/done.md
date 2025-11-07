@@ -2,6 +2,10 @@
 
 Ends the current Claude Code session and generates comprehensive session artifacts.
 
+## How It Works
+
+This is a custom slash command that triggers `.claude/commands/done.sh`, which executes the session exit handler and generates all session artifacts automatically.
+
 ## What It Does
 
 When you run `/done`, this command:
