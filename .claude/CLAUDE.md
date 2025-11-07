@@ -248,6 +248,17 @@ Headers:
 
 ## Current Working Tasks
 
+### CRITICAL
+1. **Replace hardcoded 'default_user' with authenticated provider ID**
+   - **Location:** `ProviderSupabaseService.swift:169`
+   - **Current:** `"user_id": "default_user"`
+   - **Fix:** Use `providerId` from `ProviderReviewRequestDetail.userId`
+   - **Implementation:**
+     - Modify `sendProviderMessage()` to accept `providerId` parameter
+     - Pass `detail.userId` from caller in `ProviderConversationStore`
+     - Update all call sites to provide the provider ID
+   - **Impact:** Database will correctly track which provider sent messages
+
 ### High Priority
 1. **Flag/Unflag UX Issue** - Fix reply box appearing when unflagging
    - Option 1: Hide reply box when status is "flagged"
@@ -260,6 +271,22 @@ Headers:
    - flagged: Show flag reason, hide reply box
    - escalated: Show escalation indicator
    - dismissed: Show dismissal indicator
+
+## Custom Commands
+
+### /done Command
+Archives session work with comprehensive documentation. Located in `.claude/commands/done.md`
+
+**Manual Invocation (if slash command not discovered):**
+```bash
+./.claude/commands/done.sh
+```
+
+This generates:
+- SESSION_SUMMARY.md with completed/in-progress tasks
+- CHANGELOG.md with git commit history
+- METRICS.txt with session statistics
+- PROJECT_WORKLIST.md with updated status
 
 ## Notes for Claude Code
 
@@ -274,6 +301,7 @@ When working with this project:
 
 ---
 
-**Last Updated:** November 6, 2025
-**Status:** Production app with active flag/unflag UX refinements
-**Next Action:** Implement flag/unflag UX improvement (Option 1, 2, or 3)
+**Last Updated:** November 7, 2025
+**Status:** Production app with provider authentication work in progress
+**Next Action:** Replace hardcoded 'default_user' with authenticated provider ID from ProviderReviewRequestDetail
+**Note:** `/done` command files created but slash command auto-discovery not working - use `./.claude/commands/done.sh` directly
