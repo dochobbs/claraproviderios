@@ -134,7 +134,6 @@ struct ConversationDetailView: View {
                             if let review = conversationReview,
                                let status = review.status,
                                status.lowercased() != "pending" {
-                                let _ = os_log("[ConversationDetailView] Rendering ReviewResultView with response=%{public}s, status=%{public}s", log: .default, type: .info, review.providerResponse ?? "nil", status)
                                 ReviewResultView(review: review, onReopen: reopenResponse)
                             }
                         }
@@ -399,12 +398,7 @@ struct ConversationDetailView: View {
     }
     
     private func submitReview() {
-        guard let detail = conversationDetail else {
-            os_log("[ConversationDetailView] submitReview: conversationDetail is nil!", log: .default, type: .error)
-            return
-        }
-
-        os_log("[ConversationDetailView] submitReview: detail.conversationId=%{public}s, detail.id=%{public}s", log: .default, type: .debug, detail.conversationId, detail.id)
+        guard let detail = conversationDetail else { return }
 
         HapticFeedback.medium()
         isSubmitting = true
@@ -421,8 +415,7 @@ struct ConversationDetailView: View {
                 case .messageDrHobbs:
                     status = "responded"
                 }
-                os_log("[ConversationDetailView] submitReview - selectedResponse=%{public}s, status=%{public}s, replyText=%{public}s", log: .default, type: .debug, String(describing: selectedResponse), status, replyText)
-                
+
                 // Add provider response if text is provided
                 var finalResponse = replyText.trimmingCharacters(in: .whitespacesAndNewlines)
                 
@@ -464,25 +457,18 @@ struct ConversationDetailView: View {
 
                 // Refresh the review display
                 let updatedReview = await store.fetchReviewForConversation(id: conversationId)
-                os_log("[ConversationDetailView] After submit - updatedReview provider_response: %{public}s", log: .default, type: .info, updatedReview?.providerResponse ?? "nil")
-                os_log("[ConversationDetailView] About to update conversationReview state with status=%{public}s", log: .default, type: .debug, updatedReview?.status ?? "nil")
-
                 await MainActor.run {
-                    os_log("[ConversationDetailView] BEFORE: conversationReview status=%{public}s, response=%{public}s", log: .default, type: .debug, conversationReview?.status ?? "nil", conversationReview?.providerResponse ?? "nil")
                     conversationReview = updatedReview
-                    os_log("[ConversationDetailView] AFTER: conversationReview status=%{public}s, response=%{public}s", log: .default, type: .info, conversationReview?.status ?? "nil", conversationReview?.providerResponse ?? "nil")
                     isSubmitting = false
                     replyText = ""
                     includeProviderName = false
                     HapticFeedback.success()
                 }
             } catch {
-                os_log("[ConversationDetailView] Exception caught in submitReview: %{public}s", log: .default, type: .error, error.localizedDescription)
                 await MainActor.run {
                     isSubmitting = false
                     errorMessage = error.localizedDescription
                     HapticFeedback.error()
-                    os_log("[ConversationDetailView] Error state updated in MainActor: %{public}s", log: .default, type: .error, error.localizedDescription)
                 }
             }
         }
@@ -1101,13 +1087,10 @@ struct ReviewResultView: View {
                 }
 
                 if let response = review.providerResponse, !response.isEmpty {
-                    let _ = os_log("[ReviewResultView] Displaying provider response (length=%d): %{public}s", log: .default, type: .info, response.count, response)
                     Divider()
                     Text(response)
                         .font(.system(.subheadline, design: .monospaced))
                         .foregroundColor(.primary)
-                } else {
-                    let _ = os_log("[ReviewResultView] Provider response is empty or nil - providerResponse=%{public}s", log: .default, type: .debug, review.providerResponse ?? "nil")
                 }
 
                 // Display flag reason under review reason if flagged
