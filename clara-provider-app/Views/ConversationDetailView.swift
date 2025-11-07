@@ -282,6 +282,15 @@ struct ConversationDetailView: View {
                 os_log("[ConversationDetailView] Navigated to new conversation - reset selectedResponse to .agree", log: .default, type: .debug)
             }
         }
+        .onChange(of: conversationDetail?.status) { _, newStatus in
+            // When status changes to "pending", reset selectedResponse
+            // This happens when user dismisses/removes a response and can respond again
+            if newStatus?.lowercased() == "pending" {
+                selectedResponse = .agree
+                replyText = selectedResponse.defaultMessage
+                os_log("[ConversationDetailView] Status changed to pending - reset selectedResponse to .agree", log: .default, type: .debug)
+            }
+        }
         .onChange(of: showingFlagModal) { _, isShowing in
             // When flag modal is opened, populate existing flag reason if available
             if isShowing, let detail = conversationDetail, let reason = detail.flagReason {
