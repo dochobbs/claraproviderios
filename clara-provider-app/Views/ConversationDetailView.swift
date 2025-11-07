@@ -454,6 +454,7 @@ struct ConversationDetailView: View {
 
                 // Refresh the review display
                 let updatedReview = await store.fetchReviewForConversation(id: conversationId)
+                os_log("[ConversationDetailView] After submit - updatedReview provider_response: %{public}s", log: .default, type: .info, updatedReview?.providerResponse ?? "nil")
                     await MainActor.run {
                         conversationReview = updatedReview
                         isSubmitting = false
@@ -581,20 +582,11 @@ struct ConversationDetailView: View {
         Task {
             do {
                 // Revert status back to "pending" to show reply box again
+                // This allows provider to re-enter a response without the old one being stuck
                 try await store.updateReviewStatus(id: conversationId.uuidString, status: "pending")
 
-                // Clear provider response and related fields for re-entry
-                if let detail = conversationDetail {
-                    try await ProviderSupabaseService.shared.addProviderResponse(
-                        id: detail.conversationId,
-                        response: "",  // Clear the response
-                        name: nil,
-                        urgency: nil,
-                        status: "pending"  // Explicitly set back to pending
-                    )
-                }
-
-                // Reload both conversation detail and review from store
+                // Reload both conversation detail and review from store - force fresh from server
+                await store.loadConversationDetails(id: conversationId, forceFresh: true)
                 let updatedReview = await store.fetchReviewForConversation(id: conversationId)
                 if let updatedReview = updatedReview {
                     await MainActor.run {
