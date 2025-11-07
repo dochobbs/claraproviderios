@@ -92,10 +92,6 @@ struct ConversationDetailView: View {
                             .frame(maxWidth: .infinity)
                             .padding()
                     } else {
-                        let _ = {
-                            os_log("[ConversationDetailView] Body rendering - allMessages=%d, conversationReview.status=%{public}s, conversationReview.response=%{public}s",
-                                   log: .default, type: .debug, allMessages.count, conversationReview?.status ?? "nil", conversationReview?.providerResponse ?? "nil")
-                        }()
                         LazyVStack(spacing: 12) {
                             // Load earlier messages button (if not on first page)
                             if currentPage > 1 {
@@ -135,16 +131,10 @@ struct ConversationDetailView: View {
                             // Review Result - appended at bottom after messages
                             // Includes flag reason if conversation is flagged
                             // Only show if review is completed (has a status other than pending)
-                            let showReview = conversationReview != nil &&
-                                            conversationReview?.status != nil &&
-                                            (conversationReview?.status?.lowercased() ?? "") != "pending"
-                            os_log("[ConversationDetailView] Review display - conversationReview=%{public}s, status=%{public}s, lowercased=%{public}s, shouldShow=%{public}s",
-                                   log: .default, type: .debug, conversationReview != nil ? "exists" : "nil", conversationReview?.status ?? "nil", conversationReview?.status?.lowercased() ?? "nil", showReview ? "YES" : "NO")
-
                             if let review = conversationReview,
                                let status = review.status,
                                status.lowercased() != "pending" {
-                                os_log("[ConversationDetailView] Rendering ReviewResultView with response: %{public}s", log: .default, type: .info, review.providerResponse ?? "nil")
+                                let _ = os_log("[ConversationDetailView] Rendering ReviewResultView with response=%{public}s, status=%{public}s", log: .default, type: .info, review.providerResponse ?? "nil", status)
                                 ReviewResultView(review: review, onReopen: reopenResponse)
                             }
                         }
