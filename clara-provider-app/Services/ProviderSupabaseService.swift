@@ -187,7 +187,9 @@ class ProviderSupabaseService: SupabaseServiceBase {
     
     /// Update the status of a provider review request by conversation_id
     func updateReviewStatus(id: String, status: String) async throws {
-        let urlString = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(id)"
+        // Normalize ID to lowercase to match fetchReviewForConversation behavior
+        let idString = id.lowercased()
+        let urlString = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(idString)"
 
         guard let url = URL(string: urlString) else {
             throw SupabaseError.invalidResponse
@@ -212,7 +214,9 @@ class ProviderSupabaseService: SupabaseServiceBase {
 
     /// Update flag reason for a review request by conversation_id
     func updateFlagReason(id: String, reason: String?) async throws {
-        let urlString = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(id)"
+        // Normalize ID to lowercase to match fetchReviewForConversation behavior
+        let idString = id.lowercased()
+        let urlString = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(idString)"
 
         guard let url = URL(string: urlString) else {
             throw SupabaseError.invalidResponse
@@ -241,7 +245,9 @@ class ProviderSupabaseService: SupabaseServiceBase {
         urgency: String?,
         status: String? = nil
     ) async throws {
-        let urlString = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(id)"
+        // Normalize ID to lowercase to match fetchReviewForConversation behavior
+        let idString = id.lowercased()
+        let urlString = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(idString)"
 
         guard let url = URL(string: urlString) else {
             throw SupabaseError.invalidResponse
