@@ -73,8 +73,15 @@ class ProviderSupabaseService: SupabaseServiceBase {
         let idString = conversationId.uuidString.lowercased()
         let urlString = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(idString)&select=id,user_id,conversation_id,conversation_title,child_name,child_age,child_dob,triage_outcome,conversation_summary,conversation_messages,provider_name,provider_response,provider_urgency,status,flag_reason,responded_at,created_at&limit=1"
         guard let url = URL(string: urlString) else { throw SupabaseError.invalidResponse }
+        os_log("[ProviderSupabaseService] Fetching review for conversation_id=%{public}s", log: .default, type: .debug, idString)
         let request = createRequest(url: url, method: "GET")
         let results = try await executeRequest(request, responseType: [ProviderReviewRequestDetail].self)
+        if let result = results.first {
+            os_log("[ProviderSupabaseService] Found review: status=%{public}s, has_response=%{public}s",
+                   log: .default, type: .debug, result.status ?? "nil", result.providerResponse != nil ? "yes" : "no")
+        } else {
+            os_log("[ProviderSupabaseService] No review found for conversation_id=%{public}s", log: .default, type: .debug, idString)
+        }
         return results.first
     }
     
@@ -275,9 +282,11 @@ class ProviderSupabaseService: SupabaseServiceBase {
 
         request.httpBody = try JSONSerialization.data(withJSONObject: updatePayload)
 
+        os_log("[ProviderSupabaseService] PATCH provider response - conversation_id=%{public}s, status=%{public}s",
+               log: .default, type: .debug, idString, status ?? "responded")
         os_log("[ProviderSupabaseService] PATCH to %{public}s", log: .default, type: .debug, urlString)
-        os_log("[ProviderSupabaseService] Payload: response=%{public}s, status=%{public}s, name=%{public}s",
-               log: .default, type: .debug, response, status ?? "responded", name ?? "nil")
+        os_log("[ProviderSupabaseService] Payload: response=%{public}s (length=%d), name=%{public}s",
+               log: .default, type: .debug, response, response.count, name ?? "nil")
 
         try await executeRequest(request)
 
