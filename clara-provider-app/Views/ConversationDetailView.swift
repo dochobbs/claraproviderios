@@ -395,8 +395,13 @@ struct ConversationDetailView: View {
     }
     
     private func submitReview() {
-        guard let detail = conversationDetail else { return }
-        
+        guard let detail = conversationDetail else {
+            os_log("[ConversationDetailView] submitReview: conversationDetail is nil!", log: .default, type: .error)
+            return
+        }
+
+        os_log("[ConversationDetailView] submitReview: detail.conversationId=%{public}s, detail.id=%{public}s", log: .default, type: .debug, detail.conversationId, detail.id)
+
         HapticFeedback.medium()
         isSubmitting = true
         
@@ -455,19 +460,23 @@ struct ConversationDetailView: View {
                 // Refresh the review display
                 let updatedReview = await store.fetchReviewForConversation(id: conversationId)
                 os_log("[ConversationDetailView] After submit - updatedReview provider_response: %{public}s", log: .default, type: .info, updatedReview?.providerResponse ?? "nil")
-                    await MainActor.run {
-                        conversationReview = updatedReview
-                        isSubmitting = false
-                        replyText = ""
-                        includeProviderName = false
-                        HapticFeedback.success()
-                    }
+                os_log("[ConversationDetailView] About to update conversationReview state with status=%{public}s", log: .default, type: .debug, updatedReview?.status ?? "nil")
+
+                await MainActor.run {
+                    conversationReview = updatedReview
+                    os_log("[ConversationDetailView] Updated conversationReview state", log: .default, type: .info)
+                    isSubmitting = false
+                    replyText = ""
+                    includeProviderName = false
+                    HapticFeedback.success()
+                }
             } catch {
+                os_log("[ConversationDetailView] Exception caught in submitReview: %{public}s", log: .default, type: .error, error.localizedDescription)
                 await MainActor.run {
                     isSubmitting = false
                     errorMessage = error.localizedDescription
                     HapticFeedback.error()
-                    os_log("[ConversationDetailView] Error in submitReview: %{public}s", log: .default, type: .error, error.localizedDescription)
+                    os_log("[ConversationDetailView] Error state updated in MainActor: %{public}s", log: .default, type: .error, error.localizedDescription)
                 }
             }
         }
