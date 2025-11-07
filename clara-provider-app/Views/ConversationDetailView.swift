@@ -431,7 +431,7 @@ struct ConversationDetailView: View {
                         urgency: nil,
                         status: status
                     )
-                    
+
                     // Create follow-up message to notify patient
                     if let conversationUUID = UUID(uuidString: detail.conversationId) {
                         try? await ProviderSupabaseService.shared.createPatientNotificationMessage(
@@ -445,12 +445,12 @@ struct ConversationDetailView: View {
                     // If no text, just update status
                     try await store.updateReviewStatus(id: detail.id, status: status)
                 }
-                
+
                 // Immediately refresh conversation details to get updated status
                 await store.loadConversationDetails(id: conversationId)
-                
-                // Refresh review requests list
-                await store.loadReviewRequests()
+
+                // Refresh review requests list - bypass debounce since user just submitted
+                await store.loadReviewRequests(bypassDebounce: true)
                 
                 // Refresh the review display
                 let updatedReview = await store.fetchReviewForConversation(id: conversationId)
@@ -466,6 +466,7 @@ struct ConversationDetailView: View {
                     isSubmitting = false
                     errorMessage = error.localizedDescription
                     HapticFeedback.error()
+                    os_log("[ConversationDetailView] Error in submitReview: %{public}s", log: .default, type: .error, error.localizedDescription)
                 }
             }
         }
@@ -473,20 +474,20 @@ struct ConversationDetailView: View {
     
     private func dismissReview() {
         guard let detail = conversationDetail else { return }
-        
+
         HapticFeedback.medium()
         isSubmitting = true
-        
+
         Task {
             do {
                 // Update status to "dismissed"
                 try await store.updateReviewStatus(id: detail.id, status: "dismissed")
-                
+
                 // Immediately refresh conversation details to get updated status
                 await store.loadConversationDetails(id: conversationId)
-                
-                // Refresh review requests list
-                await store.loadReviewRequests()
+
+                // Refresh review requests list - bypass debounce since user just submitted
+                await store.loadReviewRequests(bypassDebounce: true)
                 
                 // Refresh the review display
                 let updatedReview = await store.fetchReviewForConversation(id: conversationId)

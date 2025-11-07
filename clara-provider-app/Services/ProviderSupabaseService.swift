@@ -242,34 +242,40 @@ class ProviderSupabaseService: SupabaseServiceBase {
         status: String? = nil
     ) async throws {
         let urlString = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(id)"
-        
+
         guard let url = URL(string: urlString) else {
             throw SupabaseError.invalidResponse
         }
-        
+
         var request = createPatchRequest(url: url)
-        
+
         let formatter = ISO8601DateFormatter()
-        
+
         var updatePayload: [String: Any] = [
             "provider_response": response,
             "responded_at": formatter.string(from: Date())
         ]
-        
+
         // Set status if provided, otherwise default to "responded"
         updatePayload["status"] = status ?? "responded"
-        
+
         if let name = name {
             updatePayload["provider_name"] = name
         }
-        
+
         if let urgency = urgency {
             updatePayload["provider_urgency"] = urgency
         }
-        
+
         request.httpBody = try JSONSerialization.data(withJSONObject: updatePayload)
-        
+
+        os_log("[ProviderSupabaseService] PATCH to %{public}s", log: .default, type: .debug, urlString)
+        os_log("[ProviderSupabaseService] Payload: response=%{public}s, status=%{public}s, name=%{public}s",
+               log: .default, type: .debug, response, status ?? "responded", name ?? "nil")
+
         try await executeRequest(request)
+
+        os_log("[ProviderSupabaseService] Successfully updated provider response", log: .default, type: .info)
     }
     
     /// Create a follow-up message to notify the patient of provider response

@@ -254,20 +254,23 @@ class SupabaseServiceBase {
     /// Executes a URLRequest without expecting a response body (for PATCH/DELETE operations)
     func executeRequest(_ request: URLRequest, retryAttempts: Int = 3) async throws {
         var lastError: Error?
-        
+
         for attempt in 0..<retryAttempts {
             do {
                 let (data, response) = try await URLSession.shared.data(for: request)
-                
+
                 guard let httpResponse = response as? HTTPURLResponse else {
                     throw SupabaseError.invalidResponse
                 }
-                
+
+                os_log("[SupabaseServiceBase] Response status: %d", log: .default, type: .debug, httpResponse.statusCode)
+
                 guard (200...299).contains(httpResponse.statusCode) else {
                     let errorMessage = String(data: data, encoding: .utf8) ?? "Unknown error"
+                    os_log("[SupabaseServiceBase] Request failed with status %d: %{public}s", log: .default, type: .error, httpResponse.statusCode, errorMessage)
                     throw SupabaseError.requestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
                 }
-                
+
                 return
                 
             } catch {
