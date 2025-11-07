@@ -418,6 +418,7 @@ struct ConversationDetailView: View {
                 case .messageDrHobbs:
                     status = "responded"
                 }
+                os_log("[ConversationDetailView] submitReview - selectedResponse=%{public}s, status=%{public}s, replyText=%{public}s", log: .default, type: .debug, String(describing: selectedResponse), status, replyText)
                 
                 // Add provider response if text is provided
                 var finalResponse = replyText.trimmingCharacters(in: .whitespacesAndNewlines)
