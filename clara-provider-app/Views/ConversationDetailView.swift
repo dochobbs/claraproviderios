@@ -268,13 +268,18 @@ struct ConversationDetailView: View {
             }
         }
         .onAppear {
-            // Reset to default response type for this conversation
-            selectedResponse = .agree
-            // Prepopulate reply with default "Agree" message
+            // Prepopulate reply with default "Agree" message since it's the default selection
             replyText = selectedResponse.defaultMessage
-            os_log("[ConversationDetailView] onAppear: Reset selectedResponse to .agree", log: .default, type: .debug)
             Task {
                 await loadConversationData()
+            }
+        }
+        .onChange(of: conversationId) { oldId, newId in
+            // When navigating to a NEW conversation, reset selectedResponse
+            if oldId != newId {
+                selectedResponse = .agree
+                replyText = selectedResponse.defaultMessage
+                os_log("[ConversationDetailView] Navigated to new conversation - reset selectedResponse to .agree", log: .default, type: .debug)
             }
         }
         .onChange(of: showingFlagModal) { _, isShowing in
