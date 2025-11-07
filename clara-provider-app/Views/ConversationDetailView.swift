@@ -525,9 +525,12 @@ struct ConversationDetailView: View {
                 // Refresh the review display
                 let updatedReview = await store.fetchReviewForConversation(id: conversationId)
                 await MainActor.run {
+                    // Update BOTH to stay in sync
                     conversationReview = updatedReview
+                    conversationDetail = updatedReview
                     isSubmitting = false
                     HapticFeedback.success()
+                    os_log("[ConversationDetailView] Dismissed review - updated both state variables", log: .default, type: .info)
                 }
             } catch {
                 await MainActor.run {
