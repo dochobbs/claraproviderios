@@ -419,16 +419,9 @@ struct ConversationDetailView: View {
         
         Task {
             do {
-                // Determine status based on response type
-                let status: String
-                switch selectedResponse {
-                case .agree, .agreeWithThoughts:
-                    status = "responded"
-                case .disagreeWithThoughts:
-                    status = "flagged"
-                case .messageDrHobbs:
-                    status = "responded"
-                }
+                // All response types save as "responded"
+                // Flagging is handled separately via the flag button
+                let status = "responded"
 
                 // Add provider response if text is provided
                 var finalResponse = replyText.trimmingCharacters(in: .whitespacesAndNewlines)
