@@ -186,10 +186,17 @@ class ProviderConversationStore: ObservableObject {
     // MARK: - Load Conversation Details
     
     /// Load full conversation details for a specific conversation
-    func loadConversationDetails(id: UUID) async {
+    func loadConversationDetails(id: UUID, forceFresh: Bool = false) async {
         // CRITICAL FIX: Don't clear cache if conversation is already cached
         // This prevents losing flagged status when navigating back into a conversation
         // Only clear cache if conversation is not in memory (first load)
+        // Exception: forceFresh=true forces a server fetch even if cached (for post-submission refresh)
+
+        // Clear cache if we need fresh data
+        if forceFresh {
+            conversationDetailsCache.removeValue(forKey: id)
+        }
+
         let shouldLoadFromServer = conversationDetailsCache[id] == nil && !reviewRequests.contains { req in
             if let storedId = parseUUID(req.conversationId, context: "loadConversationDetails") {
                 return storedId == id
@@ -201,8 +208,8 @@ class ProviderConversationStore: ObservableObject {
             isLoading = !shouldLoadFromServer // Only set loading if we're actually fetching
         }
 
-        // If already cached, use it; otherwise fetch from server
-        if conversationDetailsCache[id] != nil {
+        // If already cached and not forcing fresh, use it; otherwise fetch from server
+        if conversationDetailsCache[id] != nil && !forceFresh {
             await MainActor.run {
                 isLoading = false
             }

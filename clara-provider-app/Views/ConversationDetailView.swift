@@ -446,12 +446,12 @@ struct ConversationDetailView: View {
                     try await store.updateReviewStatus(id: detail.id, status: status)
                 }
 
-                // Immediately refresh conversation details to get updated status
-                await store.loadConversationDetails(id: conversationId)
+                // Immediately refresh conversation details to get updated status - force fresh from server
+                await store.loadConversationDetails(id: conversationId, forceFresh: true)
 
                 // Refresh review requests list - bypass debounce since user just submitted
                 await store.loadReviewRequests(bypassDebounce: true)
-                
+
                 // Refresh the review display
                 let updatedReview = await store.fetchReviewForConversation(id: conversationId)
                     await MainActor.run {
@@ -483,8 +483,8 @@ struct ConversationDetailView: View {
                 // Update status to "dismissed"
                 try await store.updateReviewStatus(id: detail.id, status: "dismissed")
 
-                // Immediately refresh conversation details to get updated status
-                await store.loadConversationDetails(id: conversationId)
+                // Immediately refresh conversation details to get updated status - force fresh from server
+                await store.loadConversationDetails(id: conversationId, forceFresh: true)
 
                 // Refresh review requests list - bypass debounce since user just submitted
                 await store.loadReviewRequests(bypassDebounce: true)
@@ -553,8 +553,9 @@ struct ConversationDetailView: View {
             // Remove flag and flag reason, but preserve review response
             try await store.unflagConversation(id: conversationId)
 
-            // Reload BOTH conversation detail and review from store
+            // Reload BOTH conversation detail and review from store - force fresh from server
             // This ensures we get the correct restored status (not "pending")
+            await store.loadConversationDetails(id: conversationId, forceFresh: true)
             let updatedReview = await store.fetchReviewForConversation(id: conversationId)
             if let updatedReview = updatedReview {
                 await MainActor.run {
