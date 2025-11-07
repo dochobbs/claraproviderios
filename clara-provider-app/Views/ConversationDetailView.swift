@@ -18,6 +18,30 @@ struct ConversationDetailView: View {
     @State private var showingFlagModal = false
     @State private var flagReason = ""
     @State private var isFlagging = false
+
+    // MARK: - Message Pagination
+    @State private var allMessages: [Message] = []  // Store full message list
+    @State private var messagesPerPage = 50         // Show 50 messages at a time
+    @State private var currentPage = 1              // Track current page
+    @State private var hasMoreMessages = false      // Track if there are more messages to load
+
+    /// Returns the messages to display for current page
+    var displayedMessages: [Message] {
+        let startIndex = (currentPage - 1) * messagesPerPage
+        let endIndex = min(startIndex + messagesPerPage, allMessages.count)
+        return Array(allMessages[startIndex..<endIndex])
+    }
+
+    /// Total number of messages
+    var totalMessageCount: Int {
+        allMessages.count
+    }
+
+    /// Check if we can load more messages
+    var canLoadMoreMessages: Bool {
+        let totalPages = (totalMessageCount + messagesPerPage - 1) / messagesPerPage
+        return currentPage < totalPages
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -43,7 +67,25 @@ struct ConversationDetailView: View {
                         ProgressView()
                             .frame(maxWidth: .infinity)
                             .padding()
-                    } else if messages.isEmpty {
+                    } else if totalMessageCount > messagesPerPage {
+                        // Show pagination info for large conversations
+                        HStack {
+                            Text("Showing \(displayedMessages.count) of \(totalMessageCount) messages")
+                                .font(.rethinkSans(12, relativeTo: .caption))
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            if totalMessageCount > 1000 {
+                                Image(systemName: "info.circle.fill")
+                                    .foregroundColor(.orange)
+                                    .help("Large conversation: messages are paginated")
+                            }
+                        }
+                        .padding(.horizontal)
+                        .padding(.vertical, 8)
+                        .background(Color.adaptiveSecondaryBackground(for: colorScheme))
+                    }
+
+                    if allMessages.isEmpty {
                         Text("No messages yet")
                             .font(.rethinkSans(15, relativeTo: .subheadline))
                             .foregroundColor(.secondary)
@@ -51,8 +93,39 @@ struct ConversationDetailView: View {
                             .padding()
                     } else {
                         LazyVStack(spacing: 12) {
-                            ForEach(messages) { message in
+                            // Load earlier messages button (if not on first page)
+                            if currentPage > 1 {
+                                Button(action: { currentPage -= 1 }) {
+                                    HStack {
+                                        Image(systemName: "chevron.up")
+                                        Text("Load Earlier Messages (\(totalMessageCount - (currentPage * messagesPerPage)) more)")
+                                        Image(systemName: "chevron.up")
+                                    }
+                                    .font(.rethinkSans(14, relativeTo: .caption))
+                                    .foregroundColor(.primaryCoral)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                            }
+
+                            // Display paginated messages
+                            ForEach(displayedMessages) { message in
                                 MessageBubbleView(message: message)
+                            }
+
+                            // Load more messages button (if more available)
+                            if canLoadMoreMessages {
+                                Button(action: { currentPage += 1 }) {
+                                    HStack {
+                                        Image(systemName: "chevron.down")
+                                        Text("Load More Messages (\(totalMessageCount - (currentPage * messagesPerPage)) remaining)")
+                                        Image(systemName: "chevron.down")
+                                    }
+                                    .font(.rethinkSans(14, relativeTo: .caption))
+                                    .foregroundColor(.primaryCoral)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
                             }
 
                             // Review Result - appended at bottom after messages
@@ -291,9 +364,20 @@ struct ConversationDetailView: View {
             
             // Sort by timestamp
             newMessages.sort { $0.timestamp < $1.timestamp }
-            
+
             await MainActor.run {
-                messages = newMessages
+                allMessages = newMessages
+                // Reset pagination when loading new conversation
+                currentPage = 1
+                let totalPages = (newMessages.count + messagesPerPage - 1) / messagesPerPage
+                hasMoreMessages = totalPages > 1
+
+                // Log pagination info for conversations with many messages
+                if newMessages.count > 100 {
+                    os_log("[ConversationDetailView] Loaded %d messages for pagination (showing %d per page, %d total pages)",
+                           log: .default, type: .info, newMessages.count, messagesPerPage, totalPages)
+                }
+
                 isLoading = false
             }
             

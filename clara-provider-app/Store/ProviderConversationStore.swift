@@ -45,9 +45,22 @@ class ProviderConversationStore: ObservableObject {
     }
     
     private var cancellables = Set<AnyCancellable>()
-    
+
     deinit {
         stopAutoRefresh()
+    }
+
+    // MARK: - UUID Validation Logging
+
+    /// Safely parse UUID string with validation logging for data integrity monitoring
+    /// Logs failures to help detect corrupted data in database
+    private func parseUUID(_ uuidString: String, context: String) -> UUID? {
+        guard let uuid = UUID(uuidString: uuidString) else {
+            os_log("[UUID Validation] Failed to parse UUID: %{public}s in context: %{public}s",
+                   log: .default, type: .error, uuidString, context)
+            return nil
+        }
+        return uuid
     }
     
     // MARK: - Load Review Requests
@@ -178,7 +191,7 @@ class ProviderConversationStore: ObservableObject {
         // This prevents losing flagged status when navigating back into a conversation
         // Only clear cache if conversation is not in memory (first load)
         let shouldLoadFromServer = conversationDetailsCache[id] == nil && !reviewRequests.contains { req in
-            if let storedId = UUID(uuidString: req.conversationId) {
+            if let storedId = parseUUID(req.conversationId, context: "loadConversationDetails") {
                 return storedId == id
             }
             return req.conversationId.lowercased() == id.uuidString.lowercased()
@@ -203,7 +216,7 @@ class ProviderConversationStore: ObservableObject {
 
                     // Update in reviewRequests if present
                     if let index = reviewRequests.firstIndex(where: {
-                        if let storedId = UUID(uuidString: $0.conversationId) {
+                        if let storedId = parseUUID($0.conversationId, context: "updateReviewRequestsAfterDetailsFetch") {
                             return storedId == id
                         }
                         return $0.conversationId.lowercased() == id.uuidString.lowercased()
@@ -243,8 +256,8 @@ class ProviderConversationStore: ObservableObject {
         }
         
         // Then check reviewRequests list with flexible matching
-        if let found = reviewRequests.first(where: { 
-            if let storedId = UUID(uuidString: $0.conversationId) {
+        if let found = reviewRequests.first(where: {
+            if let storedId = parseUUID($0.conversationId, context: "getConversationDetails") {
                 return storedId == conversationId
             }
             // Fallback: compare as strings (case-insensitive)
@@ -330,13 +343,13 @@ class ProviderConversationStore: ObservableObject {
         
         do {
             try await supabaseService.updateReviewStatus(id: id, status: status)
-            
+
             // Clear cache for this conversation to force refresh
             if let request = reviewRequests.first(where: { $0.id == id }),
-               let conversationId = UUID(uuidString: request.conversationId) {
+               let conversationId = parseUUID(request.conversationId, context: "updateStatusClearCache") {
                 conversationDetailsCache.removeValue(forKey: conversationId)
             }
-            
+
             // Refresh review requests to get updated status
             await loadReviewRequests()
             
@@ -423,10 +436,10 @@ class ProviderConversationStore: ObservableObject {
             
             // Clear cache for this conversation to force refresh
             if let request = reviewRequests.first(where: { $0.id == id }),
-               let conversationId = UUID(uuidString: request.conversationId) {
+               let conversationId = parseUUID(request.conversationId, context: "addProviderResponseClearCache") {
                 conversationDetailsCache.removeValue(forKey: conversationId)
             }
-            
+
             // Refresh review requests
             await loadReviewRequests()
             
@@ -471,7 +484,7 @@ class ProviderConversationStore: ObservableObject {
                 if let cached = conversationDetailsCache[id] {
                     originalStatus = cached.status
                 } else if let req = reviewRequests.first(where: {
-                    if let storedId = UUID(uuidString: $0.conversationId) {
+                    if let storedId = parseUUID($0.conversationId, context: "flagConversationPreserveStatus") {
                         return storedId == id
                     }
                     return $0.conversationId.lowercased() == id.uuidString.lowercased()
@@ -492,7 +505,7 @@ class ProviderConversationStore: ObservableObject {
             await MainActor.run {
                 // Update in reviewRequests list
                 if let index = reviewRequests.firstIndex(where: {
-                    if let storedId = UUID(uuidString: $0.conversationId) {
+                    if let storedId = parseUUID($0.conversationId, context: "flagConversationUpdateList") {
                         return storedId == id
                     }
                     return $0.conversationId.lowercased() == id.uuidString.lowercased()
