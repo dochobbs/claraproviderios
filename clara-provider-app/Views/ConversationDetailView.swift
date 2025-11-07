@@ -282,10 +282,11 @@ struct ConversationDetailView: View {
                 os_log("[ConversationDetailView] Navigated to new conversation - reset selectedResponse to .agree", log: .default, type: .debug)
             }
         }
-        .onChange(of: conversationDetail?.status) { _, newStatus in
+        .onChange(of: conversationDetail?.status) { oldStatus, newStatus in
             // When status changes to "pending", reset selectedResponse
             // This happens when user dismisses/removes a response and can respond again
-            if newStatus?.lowercased() == "pending" {
+            // DON'T reset when going from "flagged" to "responded" (unflagging preserves response)
+            if newStatus?.lowercased() == "pending" && oldStatus?.lowercased() != "flagged" {
                 selectedResponse = .agree
                 replyText = selectedResponse.defaultMessage
                 os_log("[ConversationDetailView] Status changed to pending - reset selectedResponse to .agree", log: .default, type: .debug)
@@ -465,11 +466,14 @@ struct ConversationDetailView: View {
                 // Refresh the review display
                 let updatedReview = await store.fetchReviewForConversation(id: conversationId)
                 await MainActor.run {
+                    // Update BOTH conversationReview AND conversationDetail to stay in sync
                     conversationReview = updatedReview
+                    conversationDetail = updatedReview
                     isSubmitting = false
                     replyText = ""
                     includeProviderName = false
                     HapticFeedback.success()
+                    os_log("[ConversationDetailView] Response submitted - updated both conversationReview and conversationDetail", log: .default, type: .info)
                 }
             } catch {
                 await MainActor.run {
@@ -572,6 +576,7 @@ struct ConversationDetailView: View {
                     conversationDetail = updatedReview
                     conversationReview = updatedReview
                     HapticFeedback.success()
+                    os_log("[ConversationDetailView] Unflagged conversation - status now: %{public}s", log: .default, type: .info, updatedReview.status ?? "nil")
                 }
             }
         } catch {
