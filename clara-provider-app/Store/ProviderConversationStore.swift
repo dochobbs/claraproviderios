@@ -490,6 +490,7 @@ class ProviderConversationStore: ObservableObject {
             await MainActor.run {
                 if let cached = conversationDetailsCache[id] {
                     originalStatus = cached.status
+                    os_log("[ProviderConversationStore] Found original status from cache: %{public}s", log: .default, type: .info, originalStatus ?? "nil")
                 } else if let req = reviewRequests.first(where: {
                     if let storedId = parseUUID($0.conversationId, context: "flagConversationPreserveStatus") {
                         return storedId == id
@@ -497,8 +498,15 @@ class ProviderConversationStore: ObservableObject {
                     return $0.conversationId.lowercased() == id.uuidString.lowercased()
                 }) {
                     originalStatus = req.status
+                    os_log("[ProviderConversationStore] Found original status from reviewRequests: %{public}s", log: .default, type: .info, originalStatus ?? "nil")
                 }
             }
+
+            // CRITICAL: If we can't find original status, default to "responded" not "pending"
+            // This prevents unflagging from reopening the response box
+            let statusToStore = originalStatus ?? "responded"
+            os_log("[ProviderConversationStore] Will store original status: %{public}s (was nil: %{public}s)",
+                   log: .default, type: .info, statusToStore, originalStatus == nil ? "YES" : "NO")
 
             // Update conversation status to "flagged" via Supabase
             try await supabaseService.updateReviewStatus(id: id.uuidString, status: "flagged")
@@ -538,7 +546,9 @@ class ProviderConversationStore: ObservableObject {
                 }
 
                 // Store original status for later restoration
-                UserDefaults.standard.set(originalStatus, forKey: "original_status_\(id.uuidString)")
+                UserDefaults.standard.set(statusToStore, forKey: "original_status_\(id.uuidString)")
+                os_log("[ProviderConversationStore] Stored to UserDefaults: original_status_%{public}s = %{public}s",
+                       log: .default, type: .info, id.uuidString, statusToStore)
 
                 isLoading = false
                 os_log("[ProviderConversationStore] Conversation flagged: %{public}s, reason: %{public}s",
@@ -562,7 +572,11 @@ class ProviderConversationStore: ObservableObject {
         // This preserves the conversation state (responded, etc.)
 
         // Get the original status that was saved when flagging
-        let originalStatus = UserDefaults.standard.string(forKey: "original_status_\(id.uuidString)") ?? "pending"
+        let storedStatus = UserDefaults.standard.string(forKey: "original_status_\(id.uuidString)")
+        let originalStatus = storedStatus ?? "responded"  // Changed default from "pending" to "responded"
+
+        os_log("[ProviderConversationStore] Unflagging conversation %{public}s - retrieved status: %{public}s (was nil: %{public}s)",
+               log: .default, type: .info, id.uuidString, originalStatus, storedStatus == nil ? "YES" : "NO")
 
         // Update via Supabase to restore original status (remove the "flagged" status)
         try await supabaseService.updateReviewStatus(id: id.uuidString, status: originalStatus)
