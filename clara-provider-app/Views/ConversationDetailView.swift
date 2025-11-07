@@ -135,6 +135,17 @@ struct ConversationDetailView: View {
                                let status = review.status,
                                status.lowercased() != "pending" {
                                 ReviewResultView(review: review, onReopen: reopenResponse)
+                                    .onAppear {
+                                        os_log("[ConversationDetailView] 📦 ReviewResultView APPEARED with status=%{public}s", log: .default, type: .info, status)
+                                    }
+                            } else {
+                                Color.clear.frame(height: 0)
+                                    .onAppear {
+                                        os_log("[ConversationDetailView] ❌ ReviewResultView HIDDEN - conversationReview=%{public}s, status=%{public}s",
+                                               log: .default, type: .info,
+                                               conversationReview != nil ? "exists" : "nil",
+                                               conversationReview?.status ?? "nil")
+                                    }
                             }
                         }
                         .padding(.horizontal)
@@ -465,6 +476,12 @@ struct ConversationDetailView: View {
 
                 // Refresh the review display
                 let updatedReview = await store.fetchReviewForConversation(id: conversationId)
+
+                os_log("[ConversationDetailView] Fetched updated review after submit - status=%{public}s, hasResponse=%{public}s",
+                       log: .default, type: .info,
+                       updatedReview?.status ?? "nil",
+                       updatedReview?.providerResponse != nil ? "yes" : "no")
+
                 await MainActor.run {
                     // Update BOTH conversationReview AND conversationDetail to stay in sync
                     conversationReview = updatedReview
@@ -473,7 +490,10 @@ struct ConversationDetailView: View {
                     replyText = ""
                     includeProviderName = false
                     HapticFeedback.success()
-                    os_log("[ConversationDetailView] Response submitted - updated both conversationReview and conversationDetail", log: .default, type: .info)
+                    os_log("[ConversationDetailView] ✅ UPDATED UI STATE - conversationReview status=%{public}s, conversationDetail status=%{public}s",
+                           log: .default, type: .info,
+                           conversationReview?.status ?? "nil",
+                           conversationDetail?.status ?? "nil")
                 }
             } catch {
                 await MainActor.run {
