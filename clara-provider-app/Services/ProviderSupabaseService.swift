@@ -329,17 +329,18 @@ class ProviderSupabaseService: SupabaseServiceBase {
             "user_id": request.userId,
             "message_content": providerResponse,
             "is_from_user": false,
-            "from_provider": true,
             "timestamp": timestamp,
             "is_read": false
         ]
         
         messageRequest.httpBody = try JSONSerialization.data(withJSONObject: messagePayload)
-        
+
+        os_log("[ProviderSupabaseService] Creating follow-up message for conversation: %{public}s", log: .default, type: .debug, conversationId.uuidString)
+
         do {
             // Try to create the message (this might fail if follow_up_messages table doesn't exist or has different schema)
             try await executeRequest(messageRequest)
-            os_log("[ProviderSupabaseService] Created follow-up message for patient", log: .default, type: .debug)
+            os_log("[ProviderSupabaseService] Successfully created follow-up message for patient", log: .default, type: .info)
         } catch {
             os_log("[ProviderSupabaseService] Could not create follow-up message: %{public}s", log: .default, type: .debug, String(describing: error))
             // Don't throw - this is not critical, patient can still see response via polling
