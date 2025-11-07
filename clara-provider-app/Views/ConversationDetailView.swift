@@ -134,7 +134,7 @@ struct ConversationDetailView: View {
                             if let review = conversationReview,
                                let status = review.status,
                                status.lowercased() != "pending" {
-                                ReviewResultView(review: review)
+                                ReviewResultView(review: review, onReopen: reopenResponse)
                             }
                         }
                         .padding(.horizontal)
@@ -145,7 +145,7 @@ struct ConversationDetailView: View {
                        let review = conversationReview,
                        let status = review.status,
                        status.lowercased() != "pending" {
-                        ReviewResultView(review: review)
+                        ReviewResultView(review: review, onReopen: reopenResponse)
                             .padding(.horizontal)
                     }
                 }
@@ -570,6 +570,51 @@ struct ConversationDetailView: View {
             }
         }
     }
+
+    /// Reopen a completed response to allow editing
+    /// Long-press on document icon to trigger this
+    private func reopenResponse() {
+        HapticFeedback.medium()
+
+        Task {
+            do {
+                // Revert status back to "pending" to show reply box again
+                try await store.updateReviewStatus(id: conversationId.uuidString, status: "pending")
+
+                // Clear provider response and related fields for re-entry
+                if let detail = conversationDetail {
+                    try await ProviderSupabaseService.shared.addProviderResponse(
+                        id: detail.id,
+                        response: "",  // Clear the response
+                        name: nil,
+                        urgency: nil,
+                        status: "pending"  // Explicitly set back to pending
+                    )
+                }
+
+                // Reload both conversation detail and review from store
+                let updatedReview = await store.fetchReviewForConversation(id: conversationId)
+                if let updatedReview = updatedReview {
+                    await MainActor.run {
+                        conversationDetail = updatedReview
+                        conversationReview = updatedReview
+                        // Clear form fields for re-entry
+                        replyText = ""
+                        selectedResponse = .agree
+                        includeProviderName = false
+                        HapticFeedback.success()
+                        os_log("[ConversationDetailView] Response reopened for editing", log: .default, type: .info)
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = "Failed to reopen response: \(error.localizedDescription)"
+                    HapticFeedback.error()
+                    os_log("[ConversationDetailView] Error reopening response: %{public}s", log: .default, type: .error, error.localizedDescription)
+                }
+            }
+        }
+    }
 }
 
 enum ProviderResponseType: String, CaseIterable {
@@ -981,6 +1026,7 @@ struct ClaraMarkdownView: View {
 
 struct ReviewResultView: View {
     let review: ProviderReviewRequestDetail
+    var onReopen: (() -> Void)? = nil
 
     var statusColor: Color {
         switch review.status?.lowercased() {
@@ -1019,6 +1065,10 @@ struct ReviewResultView: View {
                     Image(systemName: "doc.text.magnifyingglass")
                         .foregroundColor(statusColor)
                         .font(.title3)
+                        .contentShape(Rectangle())
+                        .onLongPressGesture {
+                            onReopen?()
+                        }
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Provider Review")
