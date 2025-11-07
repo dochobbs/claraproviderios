@@ -600,7 +600,8 @@ struct ConversationDetailView: View {
                         conversationReview = updatedReview
                         // Clear form fields for re-entry
                         replyText = ""
-                        selectedResponse = .agree
+                        // Note: DON'T reset selectedResponse here - preserve the user's choice
+                        // selectedResponse should keep whatever they had selected
                         includeProviderName = false
                         HapticFeedback.success()
                         os_log("[ConversationDetailView] Response reopened for editing", log: .default, type: .info)
