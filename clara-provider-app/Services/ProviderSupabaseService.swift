@@ -233,7 +233,7 @@ class ProviderSupabaseService: SupabaseServiceBase {
         try await executeRequest(request)
     }
 
-    /// Add provider response details to a review request
+    /// Add provider response details to a review request by conversation_id
     func addProviderResponse(
         id: String,
         response: String,
@@ -241,7 +241,7 @@ class ProviderSupabaseService: SupabaseServiceBase {
         urgency: String?,
         status: String? = nil
     ) async throws {
-        let urlString = "\(projectURL)/rest/v1/provider_review_requests?id=eq.\(id)"
+        let urlString = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(id)"
         
         guard let url = URL(string: urlString) else {
             throw SupabaseError.invalidResponse
