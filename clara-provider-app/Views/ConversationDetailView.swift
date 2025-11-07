@@ -269,8 +269,11 @@ struct ConversationDetailView: View {
             }
         }
         .onAppear {
-            // Prepopulate reply with default "Agree" message since it's the default selection
+            // Reset to default response type for this conversation
+            selectedResponse = .agree
+            // Prepopulate reply with default "Agree" message
             replyText = selectedResponse.defaultMessage
+            os_log("[ConversationDetailView] onAppear: Reset selectedResponse to .agree", log: .default, type: .debug)
             Task {
                 await loadConversationData()
             }
@@ -493,8 +496,8 @@ struct ConversationDetailView: View {
 
         Task {
             do {
-                // Update status to "dismissed"
-                try await store.updateReviewStatus(id: detail.id, status: "dismissed")
+                // Update status to "dismissed" - use conversationId not row id
+                try await store.updateReviewStatus(id: detail.conversationId, status: "dismissed")
 
                 // Immediately refresh conversation details to get updated status - force fresh from server
                 await store.loadConversationDetails(id: conversationId, forceFresh: true)
