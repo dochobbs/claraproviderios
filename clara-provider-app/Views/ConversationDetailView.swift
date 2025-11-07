@@ -469,22 +469,17 @@ struct ConversationDetailView: View {
             try await store.unflagConversation(id: conversationId)
 
             await MainActor.run {
-                // Update local conversation detail - only remove flag, keep review info
-                if var detail = conversationDetail {
-                    // Only change status if currently flagged
-                    if detail.status?.lowercased() == "flagged" {
-                        detail.status = "pending"
-                    }
-                    // Remove only the flag reason, keep providerResponse (review reason)
-                    detail.flagReason = nil
-                    conversationDetail = detail
-                }
-                // Reload review to get the updated state from store
+                // Reload BOTH conversation detail and review from store
+                // This ensures we get the correct restored status (not "pending")
                 Task {
                     let updatedReview = await store.fetchReviewForConversation(id: conversationId)
-                    await MainActor.run {
-                        conversationReview = updatedReview
-                        HapticFeedback.success()
+                    if let updatedReview = updatedReview {
+                        await MainActor.run {
+                            // Update both to stay in sync
+                            conversationDetail = updatedReview
+                            conversationReview = updatedReview
+                            HapticFeedback.success()
+                        }
                     }
                 }
             }
