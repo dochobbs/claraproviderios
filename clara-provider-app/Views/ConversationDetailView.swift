@@ -425,7 +425,7 @@ struct ConversationDetailView: View {
                 
                 if !finalResponse.isEmpty {
                     try await ProviderSupabaseService.shared.addProviderResponse(
-                        id: detail.id,
+                        id: detail.conversationId,
                         response: finalResponse,
                         name: includeProviderName ? "Dr Michael Hobbs" : nil,
                         urgency: nil,
@@ -584,7 +584,7 @@ struct ConversationDetailView: View {
                 // Clear provider response and related fields for re-entry
                 if let detail = conversationDetail {
                     try await ProviderSupabaseService.shared.addProviderResponse(
-                        id: detail.id,
+                        id: detail.conversationId,
                         response: "",  // Clear the response
                         name: nil,
                         urgency: nil,
