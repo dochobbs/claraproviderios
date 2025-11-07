@@ -8,16 +8,6 @@
 
 /* Begin PBXFileReference section */
 		7B48DBD62EA9D46200CF6F26 /* clara-provider-app.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "clara-provider-app.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		7B48DBE42EA9D46300CF6F26 /* RethinkSans-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "clara-provider-app/RethinkSans-Regular.ttf"; sourceTree = SOURCE_ROOT; };
-		7B48DBE52EA9D46300CF6F26 /* RethinkSans-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "clara-provider-app/RethinkSans-Bold.ttf"; sourceTree = SOURCE_ROOT; };
-		7B48DBE62EA9D46300CF6F26 /* RethinkSans-Italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "clara-provider-app/RethinkSans-Italic.ttf"; sourceTree = SOURCE_ROOT; };
-		7B48DBE72EA9D46300CF6F26 /* RethinkSans-BoldItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "clara-provider-app/RethinkSans-BoldItalic.ttf"; sourceTree = SOURCE_ROOT; };
-		7B48DBE82EA9D46300CF6F26 /* RethinkSans-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "clara-provider-app/RethinkSans-Medium.ttf"; sourceTree = SOURCE_ROOT; };
-		7B48DBE92EA9D46300CF6F26 /* RethinkSans-MediumItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "clara-provider-app/RethinkSans-MediumItalic.ttf"; sourceTree = SOURCE_ROOT; };
-		7B48DBEA2EA9D46300CF6F26 /* RethinkSans-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "clara-provider-app/RethinkSans-SemiBold.ttf"; sourceTree = SOURCE_ROOT; };
-		7B48DBEB2EA9D46300CF6F26 /* RethinkSans-SemiBoldItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "clara-provider-app/RethinkSans-SemiBoldItalic.ttf"; sourceTree = SOURCE_ROOT; };
-		7B48DBEC2EA9D46300CF6F26 /* RethinkSans-ExtraBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "clara-provider-app/RethinkSans-ExtraBold.ttf"; sourceTree = SOURCE_ROOT; };
-		7B48DBED2EA9D46300CF6F26 /* RethinkSans-ExtraBoldItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "clara-provider-app/RethinkSans-ExtraBoldItalic.ttf"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -119,16 +109,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				7B48DBEE2EA9D46300CF6F26 /* RethinkSans-Regular.ttf in Resources */,
-				7B48DBEF2EA9D46300CF6F26 /* RethinkSans-Bold.ttf in Resources */,
-				7B48DBF02EA9D46300CF6F26 /* RethinkSans-Italic.ttf in Resources */,
-				7B48DBF12EA9D46300CF6F26 /* RethinkSans-BoldItalic.ttf in Resources */,
-				7B48DBF22EA9D46300CF6F26 /* RethinkSans-Medium.ttf in Resources */,
-				7B48DBF32EA9D46300CF6F26 /* RethinkSans-MediumItalic.ttf in Resources */,
-				7B48DBF42EA9D46300CF6F26 /* RethinkSans-SemiBold.ttf in Resources */,
-				7B48DBF52EA9D46300CF6F26 /* RethinkSans-SemiBoldItalic.ttf in Resources */,
-				7B48DBF62EA9D46300CF6F26 /* RethinkSans-ExtraBold.ttf in Resources */,
-				7B48DBF72EA9D46300CF6F26 /* RethinkSans-ExtraBoldItalic.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -278,18 +258,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleIconName = AppIcon;
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Face ID is used to unlock the clara-provider-app and protect patient data.";
-				INFOPLIST_KEY_UIAppFonts = (
-					"RethinkSans-Regular.ttf",
-					"RethinkSans-Bold.ttf",
-					"RethinkSans-Italic.ttf",
-					"RethinkSans-BoldItalic.ttf",
-					"RethinkSans-Medium.ttf",
-					"RethinkSans-MediumItalic.ttf",
-					"RethinkSans-SemiBold.ttf",
-					"RethinkSans-SemiBoldItalic.ttf",
-					"RethinkSans-ExtraBold.ttf",
-					"RethinkSans-ExtraBoldItalic.ttf",
-				);
+				INFOPLIST_KEY_UIAppFonts = "RethinkSans-Regular.ttf RethinkSans-Bold.ttf RethinkSans-Italic.ttf RethinkSans-BoldItalic.ttf RethinkSans-Medium.ttf RethinkSans-MediumItalic.ttf RethinkSans-SemiBold.ttf RethinkSans-SemiBoldItalic.ttf RethinkSans-ExtraBold.ttf RethinkSans-ExtraBoldItalic.ttf";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -324,18 +293,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleIconName = AppIcon;
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Face ID is used to unlock the clara-provider-app and protect patient data.";
-				INFOPLIST_KEY_UIAppFonts = (
-					"RethinkSans-Regular.ttf",
-					"RethinkSans-Bold.ttf",
-					"RethinkSans-Italic.ttf",
-					"RethinkSans-BoldItalic.ttf",
-					"RethinkSans-Medium.ttf",
-					"RethinkSans-MediumItalic.ttf",
-					"RethinkSans-SemiBold.ttf",
-					"RethinkSans-SemiBoldItalic.ttf",
-					"RethinkSans-ExtraBold.ttf",
-					"RethinkSans-ExtraBoldItalic.ttf",
-				);
+				INFOPLIST_KEY_UIAppFonts = "RethinkSans-Regular.ttf RethinkSans-Bold.ttf RethinkSans-Italic.ttf RethinkSans-BoldItalic.ttf RethinkSans-Medium.ttf RethinkSans-MediumItalic.ttf RethinkSans-SemiBold.ttf RethinkSans-SemiBoldItalic.ttf RethinkSans-ExtraBold.ttf RethinkSans-ExtraBoldItalic.ttf";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

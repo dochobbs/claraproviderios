@@ -1,9 +1,11 @@
-# Clara Provider App - Project Worklist
-**Last Updated:** 2025-11-07 at 06:42:18
-**Total Items:** 18
-**Completed:** 0
-**In Progress:** 1
-**Pending:** 17
+# Project Worklist - Clara Provider App
+**Last Updated:** 2025-11-07
+
+## Statistics
+- Total Items: 18
+- Completed: 0
+- In Progress: 1
+- Pending: 17
 
 ## 🔴 CRITICAL (Do First) - 2 items
 - [ ] Move Claude API key to Keychain (SecureConfig) - IN PROGRESS
@@ -31,10 +33,5 @@
 - [ ] Add UUID validation logging
 - [ ] Review Claude API model version
 
-## Session History
-- **2025-11-07**: Session archived - See `.claude/sessions/2025-11-07/`
-
 ---
-View detailed session summary: `.claude/sessions/2025-11-07/SESSION_SUMMARY.md`
-View changelog: `.claude/sessions/2025-11-07/CHANGELOG.md`
-View metrics: `.claude/sessions/2025-11-07/METRICS.txt`
+*Updated: 2025-11-07 06:42:18*
