@@ -448,7 +448,7 @@ struct ConversationDetailView: View {
                     }
                 } else {
                     // If no text, just update status
-                    try await store.updateReviewStatus(id: detail.id, status: status)
+                    try await store.updateReviewStatus(id: detail.conversationId, status: status)
                 }
 
                 // Immediately refresh conversation details to get updated status - force fresh from server
@@ -463,8 +463,9 @@ struct ConversationDetailView: View {
                 os_log("[ConversationDetailView] About to update conversationReview state with status=%{public}s", log: .default, type: .debug, updatedReview?.status ?? "nil")
 
                 await MainActor.run {
+                    os_log("[ConversationDetailView] BEFORE: conversationReview status=%{public}s, response=%{public}s", log: .default, type: .debug, conversationReview?.status ?? "nil", conversationReview?.providerResponse ?? "nil")
                     conversationReview = updatedReview
-                    os_log("[ConversationDetailView] Updated conversationReview state", log: .default, type: .info)
+                    os_log("[ConversationDetailView] AFTER: conversationReview status=%{public}s, response=%{public}s", log: .default, type: .info, conversationReview?.status ?? "nil", conversationReview?.providerResponse ?? "nil")
                     isSubmitting = false
                     replyText = ""
                     includeProviderName = false
