@@ -1062,9 +1062,9 @@ struct ReviewResultView: View {
     var statusColor: Color {
         switch review.status?.lowercased() {
         case "responded":
-            return .green
+            return .flaggedTeal
         case "flagged":
-            return .orange
+            return .primaryCoral
         case "escalated":
             return .red
         default:
@@ -1075,9 +1075,9 @@ struct ReviewResultView: View {
     var backgroundColor: Color {
         switch review.status?.lowercased() {
         case "responded":
-            return Color.green.opacity(0.1)
+            return Color.flaggedTeal.opacity(0.1)
         case "flagged":
-            return Color.orange.opacity(0.2)
+            return Color.primaryCoral.opacity(0.2)
         case "escalated":
             return Color.red.opacity(0.1)
         default:

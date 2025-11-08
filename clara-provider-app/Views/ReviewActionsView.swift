@@ -21,7 +21,7 @@ struct ReviewActionsView: View {
                 ActionButton(
                     title: "Flag",
                     icon: "flag.fill",
-                    color: .flaggedTeal
+                    color: .primaryCoral
                 ) {
                     pendingAction = .flag
                     showingConfirmDialog = true

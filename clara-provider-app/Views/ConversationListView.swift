@@ -303,9 +303,9 @@ struct StatusBadge: View {
         case "escalated":
             return .red
         case "flagged":
-            return .flaggedTeal
-        case "responded":
             return .primaryCoral
+        case "responded":
+            return .flaggedTeal
         default:
             return .gray
         }
