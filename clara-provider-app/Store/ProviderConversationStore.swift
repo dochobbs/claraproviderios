@@ -564,14 +564,16 @@ class ProviderConversationStore: ObservableObject {
             }) {
                 reviewRequests[index].isFlagged = false
                 reviewRequests[index].unflaggedAt = ISO8601DateFormatter().string(from: Date())
+                reviewRequests[index].flagReason = nil  // Clear reason text from UI
                 // NOTE: status field stays unchanged!
-                // NOTE: Keep flag_reason, flagged_at, flagged_by for audit trail
+                // NOTE: Keep flagged_at, flagged_by in DB for audit trail
             }
 
             // Update in cache
             if var cached = conversationDetailsCache[id] {
                 cached.isFlagged = false
                 cached.unflaggedAt = ISO8601DateFormatter().string(from: Date())
+                cached.flagReason = nil  // Clear reason text from UI
                 conversationDetailsCache[id] = cached
             }
 

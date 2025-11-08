@@ -277,8 +277,9 @@ class ProviderSupabaseService: SupabaseServiceBase {
         let formatter = ISO8601DateFormatter()
         let updatePayload: [String: Any] = [
             "is_flagged": false,
-            "unflagged_at": formatter.string(from: Date())
-            // Note: We keep flag_reason, flagged_at, flagged_by for audit trail
+            "unflagged_at": formatter.string(from: Date()),
+            "flag_reason": NSNull()  // Clear reason text from UI, keep audit trail fields
+            // Note: We keep flagged_at, flagged_by for audit trail
         ]
 
         request.httpBody = try JSONSerialization.data(withJSONObject: updatePayload)
