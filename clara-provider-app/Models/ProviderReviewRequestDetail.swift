@@ -13,8 +13,12 @@ struct ProviderReviewRequestDetail: Codable, Identifiable, Equatable {
     let triageOutcome: String?
     let conversationSummary: String?
     let conversationMessages: [ConversationMessage]?
-    var status: String?  // pending, responded, flagged, escalated
+    var status: String?  // pending, responded, dismissed (no longer includes 'flagged')
+    var isFlagged: Bool?  // NEW: Separate boolean for flagging
     var flagReason: String?  // Reason for flagging, if flagged
+    var flaggedAt: String?  // NEW: When flagged
+    var flaggedBy: String?  // NEW: Who flagged it
+    var unflaggedAt: String?  // NEW: When unflagged
     let providerName: String?
     let providerResponse: String?
     let providerUrgency: String?
@@ -33,7 +37,11 @@ struct ProviderReviewRequestDetail: Codable, Identifiable, Equatable {
         case conversationSummary = "conversation_summary"
         case conversationMessages = "conversation_messages"
         case status
+        case isFlagged = "is_flagged"
         case flagReason = "flag_reason"
+        case flaggedAt = "flagged_at"
+        case flaggedBy = "flagged_by"
+        case unflaggedAt = "unflagged_at"
         case providerName = "provider_name"
         case providerResponse = "provider_response"
         case providerUrgency = "provider_urgency"
@@ -58,7 +66,11 @@ struct ProviderReviewRequestDetail: Codable, Identifiable, Equatable {
         triageOutcome = try container.decodeIfPresent(String.self, forKey: .triageOutcome)
         conversationSummary = try container.decodeIfPresent(String.self, forKey: .conversationSummary)
         status = try container.decodeIfPresent(String.self, forKey: .status)
+        isFlagged = try container.decodeIfPresent(Bool.self, forKey: .isFlagged)
         flagReason = try container.decodeIfPresent(String.self, forKey: .flagReason)
+        flaggedAt = try container.decodeIfPresent(String.self, forKey: .flaggedAt)
+        flaggedBy = try container.decodeIfPresent(String.self, forKey: .flaggedBy)
+        unflaggedAt = try container.decodeIfPresent(String.self, forKey: .unflaggedAt)
         providerName = try container.decodeIfPresent(String.self, forKey: .providerName)
         providerResponse = try container.decodeIfPresent(String.self, forKey: .providerResponse)
         providerUrgency = try container.decodeIfPresent(String.self, forKey: .providerUrgency)
@@ -93,7 +105,11 @@ struct ProviderReviewRequestDetail: Codable, Identifiable, Equatable {
         conversationSummary: String? = nil,
         conversationMessages: [ConversationMessage]? = nil,
         status: String? = nil,
+        isFlagged: Bool? = nil,
         flagReason: String? = nil,
+        flaggedAt: String? = nil,
+        flaggedBy: String? = nil,
+        unflaggedAt: String? = nil,
         providerName: String? = nil,
         providerResponse: String? = nil,
         providerUrgency: String? = nil,
@@ -111,7 +127,11 @@ struct ProviderReviewRequestDetail: Codable, Identifiable, Equatable {
         self.conversationSummary = conversationSummary
         self.conversationMessages = conversationMessages
         self.status = status
+        self.isFlagged = isFlagged
         self.flagReason = flagReason
+        self.flaggedAt = flaggedAt
+        self.flaggedBy = flaggedBy
+        self.unflaggedAt = unflaggedAt
         self.providerName = providerName
         self.providerResponse = providerResponse
         self.providerUrgency = providerUrgency

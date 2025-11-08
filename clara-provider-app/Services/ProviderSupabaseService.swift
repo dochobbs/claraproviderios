@@ -15,7 +15,7 @@ class ProviderSupabaseService: SupabaseServiceBase {
     /// Fetch all provider review requests, optionally filtered by status
     func fetchProviderReviewRequests(status: String? = nil) async throws -> [ProviderReviewRequestDetail] {
         var queryParams: [String] = [
-            "select=id,user_id,conversation_id,conversation_title,child_name,child_age,child_dob,triage_outcome,conversation_summary,conversation_messages,provider_name,provider_response,provider_urgency,status,flag_reason,responded_at,created_at",
+            "select=id,user_id,conversation_id,conversation_title,child_name,child_age,child_dob,triage_outcome,conversation_summary,conversation_messages,provider_name,provider_response,provider_urgency,status,is_flagged,flag_reason,flagged_at,flagged_by,unflagged_at,responded_at,created_at",
             "order=created_at.desc"
         ]
         
@@ -63,15 +63,27 @@ class ProviderSupabaseService: SupabaseServiceBase {
         return try await fetchProviderReviewRequests(status: "escalated")
     }
     
-    /// Fetch flagged review requests
+    /// Fetch flagged review requests (now uses is_flagged column)
     func fetchFlaggedReviews() async throws -> [ProviderReviewRequestDetail] {
-        return try await fetchProviderReviewRequests(status: "flagged")
+        var queryParams: [String] = [
+            "select=id,user_id,conversation_id,conversation_title,child_name,child_age,child_dob,triage_outcome,conversation_summary,conversation_messages,provider_name,provider_response,provider_urgency,status,is_flagged,flag_reason,flagged_at,flagged_by,unflagged_at,responded_at,created_at",
+            "is_flagged=eq.true",
+            "order=created_at.desc"
+        ]
+
+        let urlString = "\(projectURL)/rest/v1/provider_review_requests?" + queryParams.joined(separator: "&")
+        guard let url = URL(string: urlString) else {
+            throw SupabaseError.invalidResponse
+        }
+
+        let request = createRequest(url: url, method: "GET")
+        return try await executeRequest(request, responseType: [ProviderReviewRequestDetail].self)
     }
     
     // MARK: - Fetch Review For Conversation
     func fetchReviewForConversation(conversationId: UUID) async throws -> ProviderReviewRequestDetail? {
         let idString = conversationId.uuidString.lowercased()
-        let urlString = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(idString)&select=id,user_id,conversation_id,conversation_title,child_name,child_age,child_dob,triage_outcome,conversation_summary,conversation_messages,provider_name,provider_response,provider_urgency,status,flag_reason,responded_at,created_at&limit=1"
+        let urlString = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(idString)&select=id,user_id,conversation_id,conversation_title,child_name,child_age,child_dob,triage_outcome,conversation_summary,conversation_messages,provider_name,provider_response,provider_urgency,status,is_flagged,flag_reason,flagged_at,flagged_by,unflagged_at,responded_at,created_at&limit=1"
         guard let url = URL(string: urlString) else { throw SupabaseError.invalidResponse }
         os_log("[ProviderSupabaseService] Fetching review for conversation_id=%{public}s", log: .default, type: .debug, idString)
         let request = createRequest(url: url, method: "GET")
@@ -96,7 +108,7 @@ class ProviderSupabaseService: SupabaseServiceBase {
         
         for (index, format) in formats.enumerated() {
             // Don't URL encode - UUIDs are valid in URLs, and encoding would break dashes
-            let urlString = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(format)&select=id,user_id,conversation_id,conversation_title,child_name,child_age,child_dob,triage_outcome,conversation_summary,conversation_messages,provider_name,provider_response,provider_urgency,status,flag_reason,responded_at,created_at&limit=1"
+            let urlString = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(format)&select=id,user_id,conversation_id,conversation_title,child_name,child_age,child_dob,triage_outcome,conversation_summary,conversation_messages,provider_name,provider_response,provider_urgency,status,is_flagged,flag_reason,flagged_at,flagged_by,unflagged_at,responded_at,created_at&limit=1"
 
             os_log("[ProviderSupabaseService] Fetching conversation details (attempt %d/%d)", log: .default, type: .debug, index + 1, formats.count)
 
@@ -219,9 +231,8 @@ class ProviderSupabaseService: SupabaseServiceBase {
         try await executeRequest(request)
     }
 
-    /// Update flag reason for a review request by conversation_id
-    func updateFlagReason(id: String, reason: String?) async throws {
-        // Normalize ID to lowercase to match fetchReviewForConversation behavior
+    /// Flag a review request (sets is_flagged=true and adds flag metadata)
+    func flagReview(id: String, reason: String?, flaggedBy: String) async throws {
         let idString = id.lowercased()
         let urlString = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(idString)"
 
@@ -231,13 +242,44 @@ class ProviderSupabaseService: SupabaseServiceBase {
 
         var request = createPatchRequest(url: url)
 
-        // Build payload, handling nil values properly
-        var updatePayload: [String: Any] = [:]
-        if let reason = reason {
+        let formatter = ISO8601DateFormatter()
+        var updatePayload: [String: Any] = [
+            "is_flagged": true,
+            "flagged_at": formatter.string(from: Date()),
+            "flagged_by": flaggedBy
+        ]
+
+        if let reason = reason, !reason.isEmpty {
             updatePayload["flag_reason"] = reason
         } else {
             updatePayload["flag_reason"] = NSNull()
         }
+
+        // Clear unflagged_at when flagging
+        updatePayload["unflagged_at"] = NSNull()
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: updatePayload)
+
+        try await executeRequest(request)
+    }
+
+    /// Unflag a review request (sets is_flagged=false and adds unflag metadata)
+    func unflagReview(id: String) async throws {
+        let idString = id.lowercased()
+        let urlString = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(idString)"
+
+        guard let url = URL(string: urlString) else {
+            throw SupabaseError.invalidResponse
+        }
+
+        var request = createPatchRequest(url: url)
+
+        let formatter = ISO8601DateFormatter()
+        let updatePayload: [String: Any] = [
+            "is_flagged": false,
+            "unflagged_at": formatter.string(from: Date())
+            // Note: We keep flag_reason, flagged_at, flagged_by for audit trail
+        ]
 
         request.httpBody = try JSONSerialization.data(withJSONObject: updatePayload)
 

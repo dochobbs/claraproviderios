@@ -193,7 +193,7 @@ struct ConversationDetailView: View {
                 HStack(spacing: 12) {
                     if let detail = conversationDetail {
                         Button(action: {
-                            if detail.status?.lowercased() == "flagged" {
+                            if detail.isFlagged == true {
                                 // Unflag
                                 Task {
                                     await unflagConversation()
@@ -203,10 +203,10 @@ struct ConversationDetailView: View {
                                 showingFlagModal = true
                             }
                         }) {
-                            Image(systemName: detail.status?.lowercased() == "flagged" ? "flag.fill" : "flag")
+                            Image(systemName: detail.isFlagged == true ? "flag.fill" : "flag")
                                 .foregroundColor(.orange)
                         }
-                        .accessibilityLabel(detail.status?.lowercased() == "flagged" ? "Unflag conversation" : "Flag conversation")
+                        .accessibilityLabel(detail.isFlagged == true ? "Unflag conversation" : "Flag conversation")
                     } else {
                         // Show loading state or placeholder
                         Image(systemName: "flag")
@@ -554,9 +554,9 @@ struct ConversationDetailView: View {
                 await MainActor.run {
                     isFlagging = false
                     showingFlagModal = false
-                    // Update local conversation detail to reflect flagged status and reason
+                    // Update local conversation detail to reflect flagged state and reason
                     if var detail = conversationDetail {
-                        detail.status = "flagged"
+                        detail.isFlagged = true
                         if !trimmedReason.isEmpty {
                             detail.flagReason = trimmedReason
                         }
@@ -1063,10 +1063,10 @@ struct ReviewResultView: View {
         switch review.status?.lowercased() {
         case "responded":
             return .flaggedTeal
-        case "flagged":
-            return .primaryCoral
         case "escalated":
             return .red
+        case "dismissed":
+            return .gray
         default:
             return .blue
         }
@@ -1076,10 +1076,10 @@ struct ReviewResultView: View {
         switch review.status?.lowercased() {
         case "responded":
             return Color.flaggedTeal.opacity(0.1)
-        case "flagged":
-            return Color.primaryCoral.opacity(0.2)
         case "escalated":
             return Color.red.opacity(0.1)
+        case "dismissed":
+            return Color.gray.opacity(0.1)
         default:
             return Color.primaryCoral.opacity(0.1)
         }
@@ -1107,9 +1107,22 @@ struct ReviewResultView: View {
                             .foregroundColor(.secondary)
                             .textCase(.uppercase)
 
-                        Text(review.status?.capitalized ?? "Pending")
-                            .font(.rethinkSansBold(15, relativeTo: .subheadline))
-                            .foregroundColor(statusColor)
+                        HStack(spacing: 6) {
+                            Text(review.status?.capitalized ?? "Pending")
+                                .font(.rethinkSansBold(15, relativeTo: .subheadline))
+                                .foregroundColor(statusColor)
+
+                            // Show flag badge if conversation is flagged
+                            if review.isFlagged == true {
+                                Image(systemName: "flag.fill")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 3)
+                                    .background(Color.orange)
+                                    .cornerRadius(4)
+                            }
+                        }
                     }
 
                     Spacer()

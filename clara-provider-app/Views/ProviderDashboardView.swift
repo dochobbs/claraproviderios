@@ -292,10 +292,10 @@ struct RecentActivityRow: View {
             return .orange
         case "escalated":
             return .red
-        case "flagged":
-            return .primaryCoral
         case "responded":
             return .flaggedTeal
+        case "dismissed":
+            return .gray
         default:
             return .gray
         }

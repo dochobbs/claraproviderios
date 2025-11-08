@@ -483,38 +483,15 @@ class ProviderConversationStore: ObservableObject {
         }
 
         do {
-            // IMPORTANT: Before changing status to "flagged", preserve the original status
-            // so we can restore it when unflagging (don't want status to become "pending")
-            var originalStatus: String? = nil
+            // NEW: Use is_flagged column instead of status
+            // No need to preserve original status - status field stays unchanged!
+            let providerName = "Dr. Hobbs"  // TODO: Get from actual provider profile
 
-            await MainActor.run {
-                if let cached = conversationDetailsCache[id] {
-                    originalStatus = cached.status
-                    os_log("[ProviderConversationStore] Found original status from cache: %{public}s", log: .default, type: .info, originalStatus ?? "nil")
-                } else if let req = reviewRequests.first(where: {
-                    if let storedId = parseUUID($0.conversationId, context: "flagConversationPreserveStatus") {
-                        return storedId == id
-                    }
-                    return $0.conversationId.lowercased() == id.uuidString.lowercased()
-                }) {
-                    originalStatus = req.status
-                    os_log("[ProviderConversationStore] Found original status from reviewRequests: %{public}s", log: .default, type: .info, originalStatus ?? "nil")
-                }
-            }
-
-            // CRITICAL: If we can't find original status, default to "responded" not "pending"
-            // This prevents unflagging from reopening the response box
-            let statusToStore = originalStatus ?? "responded"
-            os_log("[ProviderConversationStore] Will store original status: %{public}s (was nil: %{public}s)",
-                   log: .default, type: .info, statusToStore, originalStatus == nil ? "YES" : "NO")
-
-            // Update conversation status to "flagged" via Supabase
-            try await supabaseService.updateReviewStatus(id: id.uuidString, status: "flagged")
-
-            // Update flag reason in Supabase if provided
-            if !trimmedReason.isEmpty {
-                try await supabaseService.updateFlagReason(id: id.uuidString, reason: trimmedReason)
-            }
+            try await supabaseService.flagReview(
+                id: id.uuidString,
+                reason: trimmedReason.isEmpty ? nil : trimmedReason,
+                flaggedBy: providerName
+            )
 
             // Update local cache
             await MainActor.run {
@@ -525,30 +502,29 @@ class ProviderConversationStore: ObservableObject {
                     }
                     return $0.conversationId.lowercased() == id.uuidString.lowercased()
                 }) {
-                    reviewRequests[index].status = "flagged"
-                    // Store original status as a note (in providerResponse comment or create new field)
-                    // For now, store it in the note we'll use when unflagging
-                    // Store flag reason if provided
+                    reviewRequests[index].isFlagged = true
+                    reviewRequests[index].flaggedAt = ISO8601DateFormatter().string(from: Date())
+                    reviewRequests[index].flaggedBy = providerName
                     if !trimmedReason.isEmpty {
                         reviewRequests[index].flagReason = trimmedReason
                     }
+                    // NOTE: status field stays unchanged!
                 }
 
-                // Update in cache with original status tracking
+                // Update in cache
                 if var cached = conversationDetailsCache[id] {
-                    // Store the original status in a temporary way (we'll encode it in the response if needed)
-                    cached.status = "flagged"
-                    // Store flag reason if provided
+                    cached.isFlagged = true
+                    cached.flaggedAt = ISO8601DateFormatter().string(from: Date())
+                    cached.flaggedBy = providerName
                     if !trimmedReason.isEmpty {
                         cached.flagReason = trimmedReason
                     }
                     conversationDetailsCache[id] = cached
                 }
 
-                // Store original status for later restoration
-                UserDefaults.standard.set(statusToStore, forKey: "original_status_\(id.uuidString)")
-                os_log("[ProviderConversationStore] Stored to UserDefaults: original_status_%{public}s = %{public}s",
-                       log: .default, type: .info, id.uuidString, statusToStore)
+                // NO MORE UserDefaults - not needed!
+                os_log("[ProviderConversationStore] Flagged conversation %{public}s with is_flagged=true",
+                       log: .default, type: .info, id.uuidString)
 
                 isLoading = false
                 os_log("[ProviderConversationStore] Conversation flagged: %{public}s, reason: %{public}s",
@@ -568,23 +544,16 @@ class ProviderConversationStore: ObservableObject {
     /// Unflag a conversation and remove its flag reason
     /// Note: Preserves any existing review status and provider response (review reason)
     func unflagConversation(id: UUID) async throws {
-        // Remove the flag - restore the original status (don't default to "pending")
-        // This preserves the conversation state (responded, etc.)
+        // NEW: Use is_flagged column instead of status
+        // No need to restore status - it was never changed!
 
-        // Get the original status that was saved when flagging
-        let storedStatus = UserDefaults.standard.string(forKey: "original_status_\(id.uuidString)")
-        let originalStatus = storedStatus ?? "responded"  // Changed default from "pending" to "responded"
+        os_log("[ProviderConversationStore] Unflagging conversation %{public}s - setting is_flagged=false",
+               log: .default, type: .info, id.uuidString)
 
-        os_log("[ProviderConversationStore] Unflagging conversation %{public}s - retrieved status: %{public}s (was nil: %{public}s)",
-               log: .default, type: .info, id.uuidString, originalStatus, storedStatus == nil ? "YES" : "NO")
+        // Update via Supabase - sets is_flagged=false, adds unflagged_at
+        try await supabaseService.unflagReview(id: id.uuidString)
 
-        // Update via Supabase to restore original status (remove the "flagged" status)
-        try await supabaseService.updateReviewStatus(id: id.uuidString, status: originalStatus)
-
-        // Clear flag reason from Supabase
-        try await supabaseService.updateFlagReason(id: id.uuidString, reason: nil)
-
-        // Update local cache with restored status
+        // Update local cache
         await MainActor.run {
             // Update in reviewRequests list
             if let index = reviewRequests.firstIndex(where: {
@@ -593,30 +562,23 @@ class ProviderConversationStore: ObservableObject {
                 }
                 return $0.conversationId.lowercased() == id.uuidString.lowercased()
             }) {
-                // Restore original status instead of changing to "pending"
-                if reviewRequests[index].status?.lowercased() == "flagged" {
-                    reviewRequests[index].status = originalStatus
-                }
-                // Remove flag reason but KEEP provider response (review reason)
-                reviewRequests[index].flagReason = nil
+                reviewRequests[index].isFlagged = false
+                reviewRequests[index].unflaggedAt = ISO8601DateFormatter().string(from: Date())
+                // NOTE: status field stays unchanged!
+                // NOTE: Keep flag_reason, flagged_at, flagged_by for audit trail
             }
 
-            // Update in cache with restored status
+            // Update in cache
             if var cached = conversationDetailsCache[id] {
-                // Restore original status instead of changing to "pending"
-                if cached.status?.lowercased() == "flagged" {
-                    cached.status = originalStatus
-                }
-                // Remove flag reason but KEEP provider response (review reason)
-                cached.flagReason = nil
+                cached.isFlagged = false
+                cached.unflaggedAt = ISO8601DateFormatter().string(from: Date())
                 conversationDetailsCache[id] = cached
             }
 
-            // Clean up the stored original status
-            UserDefaults.standard.removeObject(forKey: "original_status_\(id.uuidString)")
+            // NO MORE UserDefaults - not needed!
 
-            os_log("[ProviderConversationStore] Conversation unflagged: %{public}s, status restored to: %{public}s",
-                   log: .default, type: .info, id.uuidString, originalStatus)
+            os_log("[ProviderConversationStore] Conversation unflagged: %{public}s, is_flagged=false",
+                   log: .default, type: .info, id.uuidString)
         }
     }
 
@@ -694,7 +656,7 @@ class ProviderConversationStore: ObservableObject {
     
     /// Get flagged reviews count
     var flaggedCount: Int {
-        reviewRequests.filter { $0.status == "flagged" }.count
+        reviewRequests.filter { $0.isFlagged == true }.count
     }
     
     /// Get reviews responded today

@@ -9,12 +9,18 @@ struct ConversationListView: View {
     
     var filteredRequests: [ProviderReviewRequestDetail] {
         var requests = store.reviewRequests
-        
-        // Filter by status
+
+        // Filter by status or flagged state
         if let status = selectedStatus {
-            requests = requests.filter { $0.status == status }
+            if status == "flagged" {
+                // Special case: filter by is_flagged boolean, not status
+                requests = requests.filter { $0.isFlagged == true }
+            } else {
+                // Filter by status for other values
+                requests = requests.filter { $0.status == status }
+            }
         }
-        
+
         // Filter by search text
         if !searchText.isEmpty {
             requests = requests.filter { request in
@@ -22,7 +28,7 @@ struct ConversationListView: View {
                 (request.childName?.localizedCaseInsensitiveContains(searchText) ?? false)
             }
         }
-        
+
         return requests
     }
     
@@ -223,17 +229,31 @@ struct StatusFilterButton: View {
 
 struct ConversationRowView: View {
     let request: ProviderReviewRequestDetail
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(request.conversationTitle ?? (request.childName ?? "Conversation"))
                     .font(.rethinkSansBold(17, relativeTo: .headline))
                     .lineLimit(1)
-                
+
                 Spacer()
-                
-                StatusBadge(status: request.status ?? "pending")
+
+                HStack(spacing: 6) {
+                    // Show flag badge if flagged (separate from status)
+                    if request.isFlagged == true {
+                        Image(systemName: "flag.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 4)
+                            .background(Color.orange)
+                            .cornerRadius(6)
+                    }
+
+                    // Show status badge
+                    StatusBadge(status: request.status ?? "pending")
+                }
             }
             
             if let childName = request.childName {
@@ -295,22 +315,22 @@ struct ConversationRowView: View {
 
 struct StatusBadge: View {
     let status: String
-    
+
     var color: Color {
         switch status {
         case "pending":
             return .orange
         case "escalated":
             return .red
-        case "flagged":
-            return .primaryCoral
         case "responded":
             return .flaggedTeal
+        case "dismissed":
+            return .gray
         default:
             return .gray
         }
     }
-    
+
     var body: some View {
         Text(status.capitalized)
             .font(.rethinkSansBold(12, relativeTo: .caption))
