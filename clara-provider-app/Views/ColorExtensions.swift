@@ -4,6 +4,7 @@ import SwiftUI
 // Match patient app color branding
 extension Color {
     static let primaryCoral = Color(red: 1.0, green: 0.35, blue: 0.2) // #FF5A33
+    static let flaggedTeal = Color(red: 0.31, green: 0.8, blue: 0.77) // #4ECDC4
     static let paperBackground = Color(red: 0.949, green: 0.929, blue: 0.878) // Darker beige - #F2EDE0
     static let userBubbleBackground = Color(red: 0.937, green: 0.906, blue: 0.824) // #EFE7D2
     

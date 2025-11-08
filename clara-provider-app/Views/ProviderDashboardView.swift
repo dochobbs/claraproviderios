@@ -163,7 +163,7 @@ struct QuickActionsSection: View {
                 QuickActionButton(
                     title: "Flagged",
                     icon: "flag",
-                    color: .yellow,
+                    color: .flaggedTeal,
                     count: store.flaggedCount
                 ) {
                     // Navigate to flagged reviews
@@ -293,7 +293,7 @@ struct RecentActivityRow: View {
         case "escalated":
             return .red
         case "flagged":
-            return .yellow
+            return .flaggedTeal
         case "responded":
             return .green
         default:

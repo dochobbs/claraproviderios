@@ -303,7 +303,7 @@ struct StatusBadge: View {
         case "escalated":
             return .red
         case "flagged":
-            return .yellow
+            return .flaggedTeal
         case "responded":
             return .primaryCoral
         default:
