@@ -584,6 +584,59 @@ class ProviderConversationStore: ObservableObject {
         }
     }
 
+    /// Schedule a follow-up for a conversation
+    func scheduleFollowUp(
+        conversationId: UUID,
+        userId: String,
+        childName: String?,
+        childAge: String?,
+        scheduledFor: Date,
+        urgency: String,
+        message: String,
+        followUpDays: Int?,
+        followUpHours: Int?,
+        followUpMinutes: Int?
+    ) async throws {
+        os_log("[ProviderConversationStore] Scheduling follow-up for conversation %{public}s",
+               log: .default, type: .info, conversationId.uuidString)
+
+        // Create follow-up request via Supabase
+        let followUpId = try await supabaseService.scheduleFollowUp(
+            conversationId: conversationId,
+            userId: userId,
+            childName: childName,
+            childAge: childAge,
+            scheduledFor: scheduledFor,
+            urgency: urgency,
+            message: message,
+            followUpDays: followUpDays,
+            followUpHours: followUpHours,
+            followUpMinutes: followUpMinutes
+        )
+
+        // Update local cache to reflect schedule_followup = true
+        await MainActor.run {
+            // Update in reviewRequests list
+            if let index = reviewRequests.firstIndex(where: {
+                if let storedId = UUID(uuidString: $0.conversationId) {
+                    return storedId == conversationId
+                }
+                return $0.conversationId.lowercased() == conversationId.uuidString.lowercased()
+            }) {
+                reviewRequests[index].scheduleFollowup = true
+            }
+
+            // Update in cache
+            if var cached = conversationDetailsCache[conversationId] {
+                cached.scheduleFollowup = true
+                conversationDetailsCache[conversationId] = cached
+            }
+
+            os_log("[ProviderConversationStore] Follow-up scheduled: %{public}s",
+                   log: .default, type: .info, followUpId)
+        }
+    }
+
     // MARK: - Refresh Conversation
 
     /// Refresh a specific conversation
@@ -660,7 +713,12 @@ class ProviderConversationStore: ObservableObject {
     var flaggedCount: Int {
         reviewRequests.filter { $0.isFlagged == true }.count
     }
-    
+
+    /// Get follow-up scheduled count
+    var followUpCount: Int {
+        reviewRequests.filter { $0.scheduleFollowup == true }.count
+    }
+
     /// Get reviews responded today
     var respondedTodayCount: Int {
         let today = Calendar.current.startOfDay(for: Date())

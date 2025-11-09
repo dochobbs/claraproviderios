@@ -15,7 +15,7 @@ class ProviderSupabaseService: SupabaseServiceBase {
     /// Fetch all provider review requests, optionally filtered by status
     func fetchProviderReviewRequests(status: String? = nil) async throws -> [ProviderReviewRequestDetail] {
         var queryParams: [String] = [
-            "select=id,user_id,conversation_id,conversation_title,child_name,child_age,child_dob,triage_outcome,conversation_summary,conversation_messages,provider_name,provider_response,provider_urgency,status,is_flagged,flag_reason,flagged_at,flagged_by,unflagged_at,responded_at,created_at",
+            "select=id,user_id,conversation_id,conversation_title,child_name,child_age,child_dob,triage_outcome,conversation_summary,conversation_messages,provider_name,provider_response,provider_urgency,status,is_flagged,flag_reason,flagged_at,flagged_by,unflagged_at,schedule_followup,responded_at,created_at",
             "order=created_at.desc"
         ]
         
@@ -65,8 +65,8 @@ class ProviderSupabaseService: SupabaseServiceBase {
     
     /// Fetch flagged review requests (now uses is_flagged column)
     func fetchFlaggedReviews() async throws -> [ProviderReviewRequestDetail] {
-        var queryParams: [String] = [
-            "select=id,user_id,conversation_id,conversation_title,child_name,child_age,child_dob,triage_outcome,conversation_summary,conversation_messages,provider_name,provider_response,provider_urgency,status,is_flagged,flag_reason,flagged_at,flagged_by,unflagged_at,responded_at,created_at",
+        let queryParams: [String] = [
+            "select=id,user_id,conversation_id,conversation_title,child_name,child_age,child_dob,triage_outcome,conversation_summary,conversation_messages,provider_name,provider_response,provider_urgency,status,is_flagged,flag_reason,flagged_at,flagged_by,unflagged_at,schedule_followup,responded_at,created_at",
             "is_flagged=eq.true",
             "order=created_at.desc"
         ]
@@ -83,7 +83,7 @@ class ProviderSupabaseService: SupabaseServiceBase {
     // MARK: - Fetch Review For Conversation
     func fetchReviewForConversation(conversationId: UUID) async throws -> ProviderReviewRequestDetail? {
         let idString = conversationId.uuidString.lowercased()
-        let urlString = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(idString)&select=id,user_id,conversation_id,conversation_title,child_name,child_age,child_dob,triage_outcome,conversation_summary,conversation_messages,provider_name,provider_response,provider_urgency,status,is_flagged,flag_reason,flagged_at,flagged_by,unflagged_at,responded_at,created_at&limit=1"
+        let urlString = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(idString)&select=id,user_id,conversation_id,conversation_title,child_name,child_age,child_dob,triage_outcome,conversation_summary,conversation_messages,provider_name,provider_response,provider_urgency,status,is_flagged,flag_reason,flagged_at,flagged_by,unflagged_at,schedule_followup,responded_at,created_at&limit=1"
         guard let url = URL(string: urlString) else { throw SupabaseError.invalidResponse }
         os_log("[ProviderSupabaseService] Fetching review for conversation_id=%{public}s", log: .default, type: .debug, idString)
         let request = createRequest(url: url, method: "GET")
@@ -108,7 +108,7 @@ class ProviderSupabaseService: SupabaseServiceBase {
         
         for (index, format) in formats.enumerated() {
             // Don't URL encode - UUIDs are valid in URLs, and encoding would break dashes
-            let urlString = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(format)&select=id,user_id,conversation_id,conversation_title,child_name,child_age,child_dob,triage_outcome,conversation_summary,conversation_messages,provider_name,provider_response,provider_urgency,status,is_flagged,flag_reason,flagged_at,flagged_by,unflagged_at,responded_at,created_at&limit=1"
+            let urlString = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(format)&select=id,user_id,conversation_id,conversation_title,child_name,child_age,child_dob,triage_outcome,conversation_summary,conversation_messages,provider_name,provider_response,provider_urgency,status,is_flagged,flag_reason,flagged_at,flagged_by,unflagged_at,schedule_followup,responded_at,created_at&limit=1"
 
             os_log("[ProviderSupabaseService] Fetching conversation details (attempt %d/%d)", log: .default, type: .debug, index + 1, formats.count)
 
@@ -390,8 +390,104 @@ class ProviderSupabaseService: SupabaseServiceBase {
         }
     }
     
+    // MARK: - Schedule Follow-up
+
+    /// Schedule a follow-up request for a conversation
+    func scheduleFollowUp(
+        conversationId: UUID,
+        userId: String,
+        childName: String?,
+        childAge: String?,
+        scheduledFor: Date,
+        urgency: String,
+        message: String,
+        followUpDays: Int?,
+        followUpHours: Int?,
+        followUpMinutes: Int?
+    ) async throws -> String {
+        // Create follow-up request
+        let urlString = "\(projectURL)/rest/v1/follow_up_requests"
+
+        guard let url = URL(string: urlString) else {
+            throw SupabaseError.invalidResponse
+        }
+
+        var request = createPostRequest(url: url)
+
+        let formatter = ISO8601DateFormatter()
+        let scheduledTimestamp = formatter.string(from: scheduledFor)
+
+        var followUpPayload: [String: Any] = [
+            "conversation_id": conversationId.uuidString,
+            "user_id": userId,
+            "scheduled_for": scheduledTimestamp,
+            "urgency": urgency,
+            "display_text": message,
+            "original_message": message,
+            "status": "scheduled"
+        ]
+
+        if let childName = childName {
+            followUpPayload["child_name"] = childName
+        }
+
+        if let childAge = childAge {
+            followUpPayload["child_age"] = childAge
+        }
+
+        if let days = followUpDays {
+            followUpPayload["follow_up_days"] = days
+        }
+
+        if let hours = followUpHours {
+            followUpPayload["follow_up_hours"] = hours
+        }
+
+        if let minutes = followUpMinutes {
+            followUpPayload["follow_up_minutes"] = minutes
+        }
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: followUpPayload)
+
+        os_log("[ProviderSupabaseService] Creating follow-up request for conversation: %{public}s",
+               log: .default, type: .debug, conversationId.uuidString)
+
+        // Execute request and get response
+        struct FollowUpResponse: Codable {
+            let id: String
+        }
+
+        let responses = try await executeRequest(request, responseType: [FollowUpResponse].self)
+
+        guard let firstResponse = responses.first else {
+            throw SupabaseError.noResponseData
+        }
+
+        // Update provider_review_requests to set schedule_followup = true
+        let updateUrlString = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(conversationId.uuidString.lowercased())"
+
+        guard let updateUrl = URL(string: updateUrlString) else {
+            throw SupabaseError.invalidResponse
+        }
+
+        var updateRequest = createPatchRequest(url: updateUrl)
+
+        let updatePayload: [String: Any] = [
+            "schedule_followup": true
+        ]
+
+        updateRequest.httpBody = try JSONSerialization.data(withJSONObject: updatePayload)
+
+        try await executeRequest(updateRequest)
+
+        os_log("[ProviderSupabaseService] Successfully scheduled follow-up: %{public}s",
+               log: .default, type: .info, firstResponse.id)
+
+        return firstResponse.id
+    }
+
     // MARK: - Fetch Follow-up Messages
-    
+
     /// Fetch all follow-up messages for a conversation
     func fetchFollowUpMessages(for conversationId: UUID) async throws -> [FollowUpMessage] {
         let urlString = "\(projectURL)/rest/v1/follow_up_messages?conversation_id=eq.\(conversationId.uuidString)&order=timestamp.asc"

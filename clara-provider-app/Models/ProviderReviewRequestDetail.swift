@@ -19,6 +19,7 @@ struct ProviderReviewRequestDetail: Codable, Identifiable, Equatable {
     var flaggedAt: String?  // NEW: When flagged
     var flaggedBy: String?  // NEW: Who flagged it
     var unflaggedAt: String?  // NEW: When unflagged
+    var scheduleFollowup: Bool?  // Whether a follow-up is scheduled
     let providerName: String?
     let providerResponse: String?
     let providerUrgency: String?
@@ -42,6 +43,7 @@ struct ProviderReviewRequestDetail: Codable, Identifiable, Equatable {
         case flaggedAt = "flagged_at"
         case flaggedBy = "flagged_by"
         case unflaggedAt = "unflagged_at"
+        case scheduleFollowup = "schedule_followup"
         case providerName = "provider_name"
         case providerResponse = "provider_response"
         case providerUrgency = "provider_urgency"
@@ -71,6 +73,7 @@ struct ProviderReviewRequestDetail: Codable, Identifiable, Equatable {
         flaggedAt = try container.decodeIfPresent(String.self, forKey: .flaggedAt)
         flaggedBy = try container.decodeIfPresent(String.self, forKey: .flaggedBy)
         unflaggedAt = try container.decodeIfPresent(String.self, forKey: .unflaggedAt)
+        scheduleFollowup = try container.decodeIfPresent(Bool.self, forKey: .scheduleFollowup)
         providerName = try container.decodeIfPresent(String.self, forKey: .providerName)
         providerResponse = try container.decodeIfPresent(String.self, forKey: .providerResponse)
         providerUrgency = try container.decodeIfPresent(String.self, forKey: .providerUrgency)
@@ -110,6 +113,7 @@ struct ProviderReviewRequestDetail: Codable, Identifiable, Equatable {
         flaggedAt: String? = nil,
         flaggedBy: String? = nil,
         unflaggedAt: String? = nil,
+        scheduleFollowup: Bool? = nil,
         providerName: String? = nil,
         providerResponse: String? = nil,
         providerUrgency: String? = nil,
@@ -132,6 +136,7 @@ struct ProviderReviewRequestDetail: Codable, Identifiable, Equatable {
         self.flaggedAt = flaggedAt
         self.flaggedBy = flaggedBy
         self.unflaggedAt = unflaggedAt
+        self.scheduleFollowup = scheduleFollowup
         self.providerName = providerName
         self.providerResponse = providerResponse
         self.providerUrgency = providerUrgency

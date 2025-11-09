@@ -189,9 +189,16 @@ struct ConversationDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                // Flag button - always show, filled if flagged, empty if not
+                // Flag button and follow-up indicator
                 HStack(spacing: 12) {
                     if let detail = conversationDetail {
+                        // Show clock icon if follow-up is scheduled
+                        if detail.scheduleFollowup == true {
+                            Image(systemName: "clock.fill")
+                                .foregroundColor(.blue)
+                                .accessibilityLabel("Follow-up scheduled")
+                        }
+
                         Button(action: {
                             if detail.isFlagged == true {
                                 // Unflag

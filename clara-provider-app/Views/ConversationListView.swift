@@ -6,15 +6,20 @@ struct ConversationListView: View {
     @State private var searchText: String = ""
     @Environment(\.colorScheme) var colorScheme
     @State private var notificationObserver: NSObjectProtocol?
+    @State private var showScheduleFollowUp: Bool = false
+    @State private var selectedRequestForFollowUp: ProviderReviewRequestDetail?
     
     var filteredRequests: [ProviderReviewRequestDetail] {
         var requests = store.reviewRequests
 
-        // Filter by status or flagged state
+        // Filter by status or flagged/follow-up state
         if let status = selectedStatus {
             if status == "flagged" {
                 // Special case: filter by is_flagged boolean, not status
                 requests = requests.filter { $0.isFlagged == true }
+            } else if status == "follow-ups" {
+                // Special case: filter by schedule_followup boolean, not status
+                requests = requests.filter { $0.scheduleFollowup == true }
             } else {
                 // Filter by status for other values
                 requests = requests.filter { $0.status == status }
@@ -35,35 +40,44 @@ struct ConversationListView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Status filter bar
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    StatusFilterButton(
-                        title: "Pending",
-                        count: store.pendingCount,
-                        isSelected: selectedStatus == "pending"
-                    ) {
-                        selectedStatus = "pending"
-                    }
-                    
-                    StatusFilterButton(
-                        title: "All",
-                        count: store.reviewRequests.count,
-                        isSelected: selectedStatus == nil
-                    ) {
-                        selectedStatus = nil
-                    }
-                    
-                    StatusFilterButton(
-                        title: "Flagged",
-                        count: store.flaggedCount,
-                        isSelected: selectedStatus == "flagged"
-                    ) {
-                        selectedStatus = "flagged"
-                    }
+            HStack(spacing: 8) {
+                StatusFilterButton(
+                    title: "Pending",
+                    count: store.pendingCount,
+                    isSelected: selectedStatus == "pending"
+                ) {
+                    selectedStatus = "pending"
                 }
-                .padding(.horizontal)
+                .frame(maxWidth: .infinity)
+
+                StatusFilterButton(
+                    title: "All",
+                    count: store.reviewRequests.count,
+                    isSelected: selectedStatus == nil
+                ) {
+                    selectedStatus = nil
+                }
+                .frame(maxWidth: .infinity)
+
+                StatusFilterButton(
+                    title: "Follow-ups",
+                    count: store.followUpCount,
+                    isSelected: selectedStatus == "follow-ups"
+                ) {
+                    selectedStatus = "follow-ups"
+                }
+                .frame(maxWidth: .infinity)
+
+                StatusFilterButton(
+                    title: "Flagged",
+                    count: store.flaggedCount,
+                    isSelected: selectedStatus == "flagged"
+                ) {
+                    selectedStatus = "flagged"
+                }
+                .frame(maxWidth: .infinity)
             }
-            .scrollContentBackground(.hidden)
+            .padding(.horizontal)
             .padding(.vertical, 8)
             .background(Color.adaptiveBackground(for: colorScheme))
             
@@ -91,6 +105,14 @@ struct ConversationListView: View {
                                 ConversationRowView(request: request)
                             }
                             .listRowBackground(Color.adaptiveBackground(for: colorScheme))
+                            .contextMenu {
+                                Button(action: {
+                                    selectedRequestForFollowUp = request
+                                    showScheduleFollowUp = true
+                                }) {
+                                    Label("Schedule Follow-up", systemImage: "calendar.badge.plus")
+                                }
+                            }
                         } else {
                             // Data integrity issue - show error instead of silently opening wrong conversation
                             HStack {
@@ -118,6 +140,12 @@ struct ConversationListView: View {
         }
         .background(Color.adaptiveBackground(for: colorScheme))
         .navigationTitle("Provider Reviews")
+        .sheet(isPresented: $showScheduleFollowUp) {
+            if let request = selectedRequestForFollowUp {
+                ScheduleFollowUpView(request: request)
+                    .environmentObject(store)
+            }
+        }
         .searchable(text: $searchText, prompt: "Search conversations...")
         .background(SearchBarCustomizer())
         .onAppear {
@@ -206,7 +234,7 @@ struct StatusFilterButton: View {
     let isSelected: Bool
     let action: () -> Void
     @Environment(\.colorScheme) var colorScheme
-    
+
     var body: some View {
         Button(action: {
             HapticFeedback.selection()
@@ -219,7 +247,7 @@ struct StatusFilterButton: View {
                     .font(.rethinkSans(12, relativeTo: .caption))
             }
             .foregroundColor(isSelected ? .white : Color.adaptiveLabel(for: colorScheme))
-            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
             .background(isSelected ? Color.primaryCoral : Color.adaptiveSecondaryBackground(for: colorScheme))
             .cornerRadius(8)
@@ -240,6 +268,17 @@ struct ConversationRowView: View {
                 Spacer()
 
                 HStack(spacing: 6) {
+                    // Show clock badge if follow-up scheduled
+                    if request.scheduleFollowup == true {
+                        Image(systemName: "clock.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 4)
+                            .background(Color.blue)
+                            .cornerRadius(6)
+                    }
+
                     // Show flag badge if flagged (separate from status)
                     if request.isFlagged == true {
                         Image(systemName: "flag.fill")
