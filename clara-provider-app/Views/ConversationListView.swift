@@ -242,7 +242,9 @@ struct StatusFilterButton: View {
         }) {
             VStack(spacing: 4) {
                 Text(title)
-                    .font(isSelected ? .rethinkSansBold(15, relativeTo: .subheadline) : .rethinkSans(15, relativeTo: .subheadline))
+                    .font(isSelected ? .rethinkSansBold(13, relativeTo: .subheadline) : .rethinkSans(13, relativeTo: .subheadline))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                 Text("\(count)")
                     .font(.rethinkSans(12, relativeTo: .caption))
             }
