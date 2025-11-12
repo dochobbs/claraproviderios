@@ -786,18 +786,19 @@ struct ProviderReplyBox: View {
                         Text("Enter your reply...")
                             .font(.system(.body, design: .monospaced))
                             .foregroundColor(Color(red: 0.4, green: 0.4, blue: 0.4)) // Darker gray for better visibility
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 12)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 16)
                             .allowsHitTesting(false) // Don't block taps
                     }
-                    
-                    TextField("", text: $replyText, axis: .vertical)
-                        .textFieldStyle(.plain)
+
+                    TextEditor(text: $replyText)
                         .font(.system(.body, design: .monospaced))
                         .foregroundColor(.black) // Explicit dark text color for readability
+                        .scrollContentBackground(.hidden) // Hide default background
+                        .background(Color.clear) // Transparent to show parent background
                         .accentColor(.primaryCoral) // Coral cursor color
-                        .padding(12)
-                        .frame(minHeight: 60, maxHeight: 120, alignment: .topLeading)
+                        .padding(8)
+                        .frame(minHeight: 100)
                 }
                 .background(Color.white)
                 .cornerRadius(8)
