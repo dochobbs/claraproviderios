@@ -637,6 +637,37 @@ class ProviderConversationStore: ObservableObject {
         }
     }
 
+    /// Cancel a scheduled follow-up for a conversation
+    func cancelFollowUp(conversationId: UUID) async throws {
+        os_log("[ProviderConversationStore] Cancelling follow-up for conversation %{public}s",
+               log: .default, type: .info, conversationId.uuidString)
+
+        // Cancel follow-up via Supabase
+        try await supabaseService.cancelFollowUp(conversationId: conversationId)
+
+        // Update local cache to reflect schedule_followup = false
+        await MainActor.run {
+            // Update in reviewRequests list
+            if let index = reviewRequests.firstIndex(where: {
+                if let storedId = UUID(uuidString: $0.conversationId) {
+                    return storedId == conversationId
+                }
+                return $0.conversationId.lowercased() == conversationId.uuidString.lowercased()
+            }) {
+                reviewRequests[index].scheduleFollowup = false
+            }
+
+            // Update in cache
+            if var cached = conversationDetailsCache[conversationId] {
+                cached.scheduleFollowup = false
+                conversationDetailsCache[conversationId] = cached
+            }
+
+            os_log("[ProviderConversationStore] Follow-up cancelled locally",
+                   log: .default, type: .info)
+        }
+    }
+
     // MARK: - Refresh Conversation
 
     /// Refresh a specific conversation

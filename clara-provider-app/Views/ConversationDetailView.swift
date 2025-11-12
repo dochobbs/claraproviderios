@@ -18,6 +18,7 @@ struct ConversationDetailView: View {
     @State private var showingFlagModal = false
     @State private var flagReason = ""
     @State private var isFlagging = false
+    @State private var isCancellingFollowUp = false
 
     // MARK: - Message Pagination
     @State private var allMessages: [Message] = []  // Store full message list
@@ -192,11 +193,9 @@ struct ConversationDetailView: View {
                 // Flag button and follow-up indicator
                 HStack(spacing: 12) {
                     if let detail = conversationDetail {
-                        // Show clock icon if follow-up is scheduled
+                        // Show clock icon if follow-up is scheduled - tappable to cancel
                         if detail.scheduleFollowup == true {
-                            Image(systemName: "clock.fill")
-                                .foregroundColor(.blue)
-                                .accessibilityLabel("Follow-up scheduled")
+                            cancelFollowUpButton
                         }
 
                         Button(action: {
@@ -587,6 +586,38 @@ struct ConversationDetailView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Cancel Follow-up Button
+
+    private var cancelFollowUpButton: some View {
+        Button(action: {
+            isCancellingFollowUp = true
+            Task {
+                do {
+                    try await store.cancelFollowUp(conversationId: conversationId)
+                    // Refresh the detail to update UI
+                    await store.loadConversationDetails(id: conversationId)
+                    // Update local state
+                    await MainActor.run {
+                        conversationDetail?.scheduleFollowup = false
+                    }
+                } catch {
+                    // Error handling
+                    errorMessage = "Failed to cancel follow-up: \(error.localizedDescription)"
+                }
+                isCancellingFollowUp = false
+            }
+        }) {
+            if isCancellingFollowUp {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+            } else {
+                Image(systemName: "clock.fill")
+                    .foregroundColor(.blue)
+            }
+        }
+        .accessibilityLabel("Cancel follow-up")
     }
 
     private func unflagConversation() async {

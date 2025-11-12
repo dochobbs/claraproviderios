@@ -486,6 +486,49 @@ class ProviderSupabaseService: SupabaseServiceBase {
         return firstResponse.id
     }
 
+    /// Cancel a scheduled follow-up request
+    func cancelFollowUp(conversationId: UUID) async throws {
+        os_log("[ProviderSupabaseService] Cancelling follow-up for conversation: %{public}s",
+               log: .default, type: .info, conversationId.uuidString)
+
+        // Update follow_up_requests status to "cancelled"
+        let followUpUrlString = "\(projectURL)/rest/v1/follow_up_requests?conversation_id=eq.\(conversationId.uuidString)&status=eq.scheduled"
+
+        guard let followUpUrl = URL(string: followUpUrlString) else {
+            throw SupabaseError.invalidResponse
+        }
+
+        var followUpRequest = createPatchRequest(url: followUpUrl)
+
+        let followUpPayload: [String: Any] = [
+            "status": "cancelled"
+        ]
+
+        followUpRequest.httpBody = try JSONSerialization.data(withJSONObject: followUpPayload)
+
+        try await executeRequest(followUpRequest)
+
+        // Update provider_review_requests to set schedule_followup = false
+        let reviewUrlString = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(conversationId.uuidString.lowercased())"
+
+        guard let reviewUrl = URL(string: reviewUrlString) else {
+            throw SupabaseError.invalidResponse
+        }
+
+        var reviewRequest = createPatchRequest(url: reviewUrl)
+
+        let reviewPayload: [String: Any] = [
+            "schedule_followup": false
+        ]
+
+        reviewRequest.httpBody = try JSONSerialization.data(withJSONObject: reviewPayload)
+
+        try await executeRequest(reviewRequest)
+
+        os_log("[ProviderSupabaseService] Successfully cancelled follow-up",
+               log: .default, type: .info)
+    }
+
     // MARK: - Fetch Follow-up Messages
 
     /// Fetch all follow-up messages for a conversation

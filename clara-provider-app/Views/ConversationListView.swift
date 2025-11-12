@@ -259,6 +259,8 @@ struct StatusFilterButton: View {
 
 struct ConversationRowView: View {
     let request: ProviderReviewRequestDetail
+    @EnvironmentObject var store: ProviderConversationStore
+    @State private var isCancelling: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -270,15 +272,40 @@ struct ConversationRowView: View {
                 Spacer()
 
                 HStack(spacing: 6) {
-                    // Show clock badge if follow-up scheduled
+                    // Show clock badge if follow-up scheduled - tappable to cancel
                     if request.scheduleFollowup == true {
-                        Image(systemName: "clock.fill")
-                            .font(.system(size: 12))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 4)
-                            .background(Color.blue)
-                            .cornerRadius(6)
+                        Button(action: {
+                            guard let conversationId = UUID(uuidString: request.conversationId) else { return }
+                            isCancelling = true
+                            Task {
+                                do {
+                                    try await store.cancelFollowUp(conversationId: conversationId)
+                                } catch {
+                                    // Error handling - could show alert
+                                    print("Failed to cancel follow-up: \(error)")
+                                }
+                                isCancelling = false
+                            }
+                        }) {
+                            if isCancelling {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                    .frame(width: 12, height: 12)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 4)
+                                    .background(Color.blue)
+                                    .cornerRadius(6)
+                            } else {
+                                Image(systemName: "clock.fill")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 4)
+                                    .background(Color.blue)
+                                    .cornerRadius(6)
+                            }
+                        }
+                        .buttonStyle(PlainButtonStyle())
                     }
 
                     // Show flag badge if flagged (separate from status)
