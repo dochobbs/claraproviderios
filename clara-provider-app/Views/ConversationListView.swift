@@ -104,7 +104,7 @@ struct ConversationListView: View {
 
             // Sub-filter buttons for Reviews (when Reviews tab is selected)
             if selectedTab == .reviews {
-                HStack(spacing: 8) {
+                HStack(spacing: 12) {
                     SubFilterButton(
                         title: "Pending",
                         count: store.pendingCount,
@@ -139,7 +139,7 @@ struct ConversationListView: View {
 
             // Sub-filter buttons for Messages (when Messages tab is selected)
             if selectedTab == .messages {
-                HStack(spacing: 8) {
+                HStack(spacing: 12) {
                     SubFilterButton(
                         title: "Unread",
                         count: store.messagesUnreadCount,
@@ -369,7 +369,7 @@ struct SubFilterButton: View {
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
             }
             .foregroundColor(isSelected ? .white : Color.adaptiveLabel(for: colorScheme))
-            .padding(.horizontal, 14)
+            .frame(maxWidth: .infinity)  // Fill width like main buttons
             .padding(.vertical, 8)
             .background(isSelected ? Color.primaryCoral : Color.adaptiveSecondaryBackground(for: colorScheme))
             .cornerRadius(8)
