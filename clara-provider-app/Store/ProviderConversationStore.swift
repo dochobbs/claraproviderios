@@ -750,6 +750,13 @@ class ProviderConversationStore: ObservableObject {
         reviewRequests.filter { $0.scheduleFollowup == true }.count
     }
 
+    /// Get conversations with active messaging (responded status)
+    var messagesUnreadCount: Int {
+        // TODO: Replace with actual unread message count from backend
+        // For now, count conversations with responded status (active messaging)
+        reviewRequests.filter { $0.status?.lowercased() == "responded" }.count
+    }
+
     /// Get reviews responded today
     var respondedTodayCount: Int {
         let today = Calendar.current.startOfDay(for: Date())

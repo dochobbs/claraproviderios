@@ -12,7 +12,7 @@ struct ConversationListView: View {
     var filteredRequests: [ProviderReviewRequestDetail] {
         var requests = store.reviewRequests
 
-        // Filter by status or flagged/follow-up state
+        // Filter by status or flagged/follow-up/messages state
         if let status = selectedStatus {
             if status == "flagged" {
                 // Special case: filter by is_flagged boolean, not status
@@ -20,6 +20,9 @@ struct ConversationListView: View {
             } else if status == "follow-ups" {
                 // Special case: filter by schedule_followup boolean, not status
                 requests = requests.filter { $0.scheduleFollowup == true }
+            } else if status == "messages" {
+                // Special case: filter by conversations with active messaging (responded status)
+                requests = requests.filter { $0.status?.lowercased() == "responded" }
             } else {
                 // Filter by status for other values
                 requests = requests.filter { $0.status == status }
@@ -39,10 +42,10 @@ struct ConversationListView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Status filter bar
-            HStack(spacing: 8) {
+            // Status filter bar (no title above)
+            HStack(spacing: 4) {
                 StatusFilterButton(
-                    title: "Pending",
+                    title: "Pend-Rev",
                     count: store.pendingCount,
                     isSelected: selectedStatus == "pending"
                 ) {
@@ -51,7 +54,16 @@ struct ConversationListView: View {
                 .frame(maxWidth: .infinity)
 
                 StatusFilterButton(
-                    title: "All",
+                    title: "Flag-Rev",
+                    count: store.flaggedCount,
+                    isSelected: selectedStatus == "flagged"
+                ) {
+                    selectedStatus = "flagged"
+                }
+                .frame(maxWidth: .infinity)
+
+                StatusFilterButton(
+                    title: "All-Rev",
                     count: store.reviewRequests.count,
                     isSelected: selectedStatus == nil
                 ) {
@@ -60,7 +72,7 @@ struct ConversationListView: View {
                 .frame(maxWidth: .infinity)
 
                 StatusFilterButton(
-                    title: "Follow-ups",
+                    title: "Follow-up",
                     count: store.followUpCount,
                     isSelected: selectedStatus == "follow-ups"
                 ) {
@@ -69,18 +81,18 @@ struct ConversationListView: View {
                 .frame(maxWidth: .infinity)
 
                 StatusFilterButton(
-                    title: "Flagged",
-                    count: store.flaggedCount,
-                    isSelected: selectedStatus == "flagged"
+                    title: "Msgs-Un",
+                    count: store.messagesUnreadCount,
+                    isSelected: selectedStatus == "messages"
                 ) {
-                    selectedStatus = "flagged"
+                    selectedStatus = "messages"
                 }
                 .frame(maxWidth: .infinity)
             }
-            .padding(.horizontal)
+            .padding(.horizontal, 8)
             .padding(.vertical, 8)
             .background(Color.adaptiveBackground(for: colorScheme))
-            
+
             Divider()
             
             // List of conversations
@@ -139,7 +151,8 @@ struct ConversationListView: View {
             }
         }
         .background(Color.adaptiveBackground(for: colorScheme))
-        .navigationTitle("Provider Reviews")
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showScheduleFollowUp) {
             if let request = selectedRequestForFollowUp {
                 ScheduleFollowUpView(request: request)
@@ -431,6 +444,7 @@ struct StatusBadge: View {
             .padding(.vertical, 4)
             .background(color)
             .cornerRadius(6)
+            .fixedSize()  // Prevent text wrapping to keep consistent height
     }
 }
 
