@@ -17,13 +17,22 @@ struct MessagingDemoView: View {
                 VStack(spacing: 16) {
                     Image(systemName: "bubble.left.and.bubble.right")
                         .font(.system(size: 48))
-                        .foregroundColor(.secondary)
-                    Text("No messages yet")
-                        .font(.rethinkSansBold(18, relativeTo: .body))
-                    Text("Start a conversation with \(patientName ?? "the parent")")
-                        .font(.rethinkSans(14, relativeTo: .subheadline))
+                        .foregroundColor(.primaryCoral)
+                    Text("Start Messaging")
+                        .font(.rethinkSansBold(20, relativeTo: .title3))
+                        .foregroundColor(Color.adaptiveLabel(for: colorScheme))
+                    Text("Send a message to \(patientName ?? "the parent") to start a conversation")
+                        .font(.rethinkSans(15, relativeTo: .subheadline))
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
+
+                    Text("This is a demo interface. Real messages will be saved to the database.")
+                        .font(.rethinkSans(12, relativeTo: .caption))
+                        .foregroundColor(.orange)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
+                        .padding(.top, 8)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding()
@@ -102,14 +111,8 @@ struct MessagingDemoView: View {
     }
 
     private func loadDemoMessages() {
-        // Add demo welcome message
-        demoMessages.append(DemoMessage(
-            id: UUID(),
-            content: "This is a demo messaging interface. Messages sent here are not saved and will not reach the parent. Full implementation requires backend support.",
-            isFromProvider: false,
-            timestamp: Date().addingTimeInterval(-3600),
-            senderName: "System"
-        ))
+        // No initial messages - let provider start the conversation
+        // Empty state will show instructions to send first message
     }
 }
 

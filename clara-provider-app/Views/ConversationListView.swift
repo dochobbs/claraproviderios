@@ -273,11 +273,13 @@ struct ConversationRowView: View {
 
                 HStack(spacing: 6) {
                     // Show message badge with unread count (demo - needs backend)
-                    // TODO: Replace with actual message count from backend
-                    let hasMessages = true  // Demo: assume all conversations have messages
+                    // For demo: Show messaging is available if provider has responded
+                    // This allows us to distinguish which conversations have active messaging
+                    // TODO: Backend should provide actual message counts and messaging status
+                    let hasMessagingEnabled = request.status?.lowercased() == "responded"
                     let unreadCount = 0     // Demo: will be populated by backend
 
-                    if hasMessages {
+                    if hasMessagingEnabled {
                         HStack(spacing: 2) {
                             Image(systemName: unreadCount > 0 ? "message.fill" : "message")
                                 .font(.system(size: 12))
