@@ -45,7 +45,7 @@ struct ConversationListView: View {
             // Status filter bar (no title above)
             HStack(spacing: 4) {
                 StatusFilterButton(
-                    title: "Pend-Rev",
+                    title: "Pend-R",
                     count: store.pendingCount,
                     isSelected: selectedStatus == "pending"
                 ) {
@@ -54,7 +54,7 @@ struct ConversationListView: View {
                 .frame(maxWidth: .infinity)
 
                 StatusFilterButton(
-                    title: "Flag-Rev",
+                    title: "Flag-R",
                     count: store.flaggedCount,
                     isSelected: selectedStatus == "flagged"
                 ) {
@@ -63,7 +63,7 @@ struct ConversationListView: View {
                 .frame(maxWidth: .infinity)
 
                 StatusFilterButton(
-                    title: "All-Rev",
+                    title: "All-R",
                     count: store.reviewRequests.count,
                     isSelected: selectedStatus == nil
                 ) {
@@ -72,7 +72,7 @@ struct ConversationListView: View {
                 .frame(maxWidth: .infinity)
 
                 StatusFilterButton(
-                    title: "Follow-up",
+                    title: "F/U",
                     count: store.followUpCount,
                     isSelected: selectedStatus == "follow-ups"
                 ) {
@@ -81,7 +81,7 @@ struct ConversationListView: View {
                 .frame(maxWidth: .infinity)
 
                 StatusFilterButton(
-                    title: "Msgs-Un",
+                    title: "Msgs",
                     count: store.messagesUnreadCount,
                     isSelected: selectedStatus == "messages"
                 ) {
@@ -259,7 +259,7 @@ struct StatusFilterButton: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                 Text("\(count)")
-                    .font(.rethinkSans(12, relativeTo: .caption))
+                    .font(.system(size: 12, design: .monospaced))
             }
             .foregroundColor(isSelected ? .white : Color.adaptiveLabel(for: colorScheme))
             .frame(maxWidth: .infinity)
@@ -274,6 +274,18 @@ struct ConversationRowView: View {
     let request: ProviderReviewRequestDetail
     @EnvironmentObject var store: ProviderConversationStore
     @State private var isCancelling: Bool = false
+
+    // Demo: Generate deterministic unread count based on conversation ID
+    var demoUnreadCount: Int {
+        // Use hash of conversation ID to determine unread count (0-5)
+        // This makes some conversations have unread messages in a consistent way
+        let hash = abs(request.conversationId.hashValue)
+        let hasUnread = (hash % 3) == 0  // ~33% of conversations have unread
+        if hasUnread {
+            return (hash % 5) + 1  // 1-5 unread messages
+        }
+        return 0
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -290,7 +302,7 @@ struct ConversationRowView: View {
                     // This allows us to distinguish which conversations have active messaging
                     // TODO: Backend should provide actual message counts and messaging status
                     let hasMessagingEnabled = request.status?.lowercased() == "responded"
-                    let unreadCount = 0     // Demo: will be populated by backend
+                    let unreadCount = demoUnreadCount  // Demo: use hash-based count
 
                     if hasMessagingEnabled {
                         HStack(spacing: 2) {

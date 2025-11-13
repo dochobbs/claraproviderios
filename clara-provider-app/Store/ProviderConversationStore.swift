@@ -750,11 +750,16 @@ class ProviderConversationStore: ObservableObject {
         reviewRequests.filter { $0.scheduleFollowup == true }.count
     }
 
-    /// Get conversations with active messaging (responded status)
+    /// Get conversations with unread messages (demo)
     var messagesUnreadCount: Int {
         // TODO: Replace with actual unread message count from backend
-        // For now, count conversations with responded status (active messaging)
-        reviewRequests.filter { $0.status?.lowercased() == "responded" }.count
+        // Demo: Count conversations with responded status that have simulated unread messages
+        reviewRequests.filter { request in
+            guard request.status?.lowercased() == "responded" else { return false }
+            // Use same hash logic as ConversationRowView to determine unread
+            let hash = abs(request.conversationId.hashValue)
+            return (hash % 3) == 0  // ~33% of responded conversations have unread
+        }.count
     }
 
     /// Get reviews responded today

@@ -730,10 +730,9 @@ struct ConversationDetailView: View {
             content += "(No provider response yet)\n\n"
         }
 
-        print("[Share] Content length: \(content.count) characters")
-        print("[Share] First 100 chars: \(String(content.prefix(100)))")
-
         // Create share item directly with content
+        // Note: iOS may log "Error acquiring assertion" - this is a benign system warning
+        // and does not prevent the share sheet from working correctly
         shareItem = ShareItem(content: content)
     }
 
@@ -1324,16 +1323,6 @@ struct ShareSheet: UIViewControllerRepresentable {
     let applicationActivities: [UIActivity]? = nil
 
     func makeUIViewController(context: Context) -> UIActivityViewController {
-        print("[ShareSheet] Creating with \(activityItems.count) items")
-        for (index, item) in activityItems.enumerated() {
-            if let string = item as? String {
-                print("[ShareSheet] Item \(index): String with \(string.count) characters")
-                print("[ShareSheet] First 50 chars: \(String(string.prefix(50)))")
-            } else {
-                print("[ShareSheet] Item \(index): \(type(of: item))")
-            }
-        }
-
         let controller = UIActivityViewController(
             activityItems: activityItems,
             applicationActivities: applicationActivities
