@@ -297,31 +297,20 @@ struct ConversationRowView: View {
                 Spacer()
 
                 HStack(spacing: 6) {
-                    // Show message badge with unread count (demo - needs backend)
-                    // For demo: Show messaging is available if provider has responded
-                    // This allows us to distinguish which conversations have active messaging
-                    // TODO: Backend should provide actual message counts and messaging status
-                    let hasMessagingEnabled = request.status?.lowercased() == "responded"
-                    let unreadCount = demoUnreadCount  // Demo: use hash-based count
+                    // Order: Flag → Follow-up → Messages → Status
 
-                    if hasMessagingEnabled {
-                        HStack(spacing: 2) {
-                            Image(systemName: unreadCount > 0 ? "message.fill" : "message")
-                                .font(.system(size: 12))
-                                .foregroundColor(.white)
-                            if unreadCount > 0 {
-                                Text("\(unreadCount)")
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundColor(.white)
-                            }
-                        }
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 4)
-                        .background(unreadCount > 0 ? Color.flaggedTeal : Color.gray.opacity(0.6))
-                        .cornerRadius(6)
+                    // 1. Show flag badge if flagged (separate from status)
+                    if request.isFlagged == true {
+                        Image(systemName: "flag.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 4)
+                            .background(Color.orange)
+                            .cornerRadius(6)
                     }
 
-                    // Show clock badge if follow-up scheduled - tappable to cancel
+                    // 2. Show clock badge if follow-up scheduled - tappable to cancel
                     if request.scheduleFollowup == true {
                         Button(action: {
                             guard let conversationId = UUID(uuidString: request.conversationId) else { return }
@@ -357,18 +346,31 @@ struct ConversationRowView: View {
                         .buttonStyle(PlainButtonStyle())
                     }
 
-                    // Show flag badge if flagged (separate from status)
-                    if request.isFlagged == true {
-                        Image(systemName: "flag.fill")
-                            .font(.system(size: 12))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 4)
-                            .background(Color.orange)
-                            .cornerRadius(6)
+                    // 3. Show message badge with unread count (demo - needs backend)
+                    // For demo: Show messaging is available if provider has responded
+                    // This allows us to distinguish which conversations have active messaging
+                    // TODO: Backend should provide actual message counts and messaging status
+                    let hasMessagingEnabled = request.status?.lowercased() == "responded"
+                    let unreadCount = demoUnreadCount  // Demo: use hash-based count
+
+                    if hasMessagingEnabled {
+                        HStack(spacing: 2) {
+                            Image(systemName: unreadCount > 0 ? "message.fill" : "message")
+                                .font(.system(size: 12))
+                                .foregroundColor(.white)
+                            if unreadCount > 0 {
+                                Text("\(unreadCount)")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(.white)
+                            }
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 4)
+                        .background(unreadCount > 0 ? Color.flaggedTeal : Color.gray.opacity(0.6))
+                        .cornerRadius(6)
                     }
 
-                    // Show status badge
+                    // 4. Show status badge - uniform width/height
                     StatusBadge(status: request.status ?? "pending")
                 }
             }
@@ -448,15 +450,28 @@ struct StatusBadge: View {
         }
     }
 
+    var displayText: String {
+        switch status {
+        case "pending":
+            return "P"
+        case "escalated":
+            return "E"
+        case "responded":
+            return "R"
+        case "dismissed":
+            return "D"
+        default:
+            return "?"
+        }
+    }
+
     var body: some View {
-        Text(status.capitalized)
-            .font(.rethinkSansBold(12, relativeTo: .caption))
+        Text(displayText)
+            .font(.system(size: 12, weight: .bold, design: .default))
             .foregroundColor(.white)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
+            .frame(width: 22, height: 22)  // Fixed size for uniform appearance
             .background(color)
             .cornerRadius(6)
-            .fixedSize()  // Prevent text wrapping to keep consistent height
     }
 }
 
