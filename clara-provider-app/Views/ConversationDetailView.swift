@@ -681,7 +681,10 @@ struct ConversationDetailView: View {
     // MARK: - Share Methods
 
     private func shareAllContent() {
-        guard let detail = conversationDetail else { return }
+        guard let detail = conversationDetail else {
+            print("[Share] No conversation detail available")
+            return
+        }
 
         var content = ""
 
@@ -708,9 +711,13 @@ struct ConversationDetailView: View {
         content += "FULL CONVERSATION\n"
         content += "═══════════════════════════════\n\n"
 
-        for message in allMessages {
-            let sender = message.isFromUser ? "Parent" : "Clara"
-            content += "[\(sender)]: \(message.content)\n\n"
+        if allMessages.isEmpty {
+            content += "(No messages in conversation)\n\n"
+        } else {
+            for message in allMessages {
+                let sender = message.isFromUser ? "Parent" : "Clara"
+                content += "[\(sender)]: \(message.content)\n\n"
+            }
         }
 
         // Section 3: Provider Response
@@ -720,10 +727,20 @@ struct ConversationDetailView: View {
             content += "═══════════════════════════════\n\n"
             content += response
             content += "\n"
+        } else {
+            content += "(No provider response yet)\n\n"
         }
 
-        shareContent = content
-        showingShareSheet = true
+        print("[Share] Content length: \(content.count) characters")
+        print("[Share] First 100 chars: \(String(content.prefix(100)))")
+
+        // Ensure content is set before showing sheet
+        Task { @MainActor in
+            shareContent = content
+            // Small delay to ensure state is updated before sheet appears
+            try? await Task.sleep(nanoseconds: 50_000_000) // 0.05 seconds
+            showingShareSheet = true
+        }
     }
 
     /// Reopen a completed response to allow editing
@@ -1306,6 +1323,16 @@ struct ShareSheet: UIViewControllerRepresentable {
     let applicationActivities: [UIActivity]? = nil
 
     func makeUIViewController(context: Context) -> UIActivityViewController {
+        print("[ShareSheet] Creating with \(activityItems.count) items")
+        for (index, item) in activityItems.enumerated() {
+            if let string = item as? String {
+                print("[ShareSheet] Item \(index): String with \(string.count) characters")
+                print("[ShareSheet] First 50 chars: \(String(string.prefix(50)))")
+            } else {
+                print("[ShareSheet] Item \(index): \(type(of: item))")
+            }
+        }
+
         let controller = UIActivityViewController(
             activityItems: activityItems,
             applicationActivities: applicationActivities
