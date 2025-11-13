@@ -820,18 +820,38 @@ struct ProviderReplyBox: View {
     @Binding var isSubmitting: Bool
     @Binding var includeProviderName: Bool
     @Environment(\.colorScheme) var colorScheme
+    @State private var isExpanded: Bool = false  // Start collapsed
     let onSubmit: () -> Void
     let onDismiss: () -> Void
-    
+
     var body: some View {
         VStack(spacing: 12) {
             Divider()
-            
-            // Response Type Dropdown with Dismiss Button
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Response")
-                    .font(.rethinkSans(12, relativeTo: .caption))
-                    .foregroundColor(.secondary)
+
+            // Tappable Response header
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isExpanded.toggle()
+                }
+                HapticFeedback.light()
+            }) {
+                HStack {
+                    Text("Response")
+                        .font(.rethinkSans(12, relativeTo: .caption))
+                        .foregroundColor(.secondary)
+
+                    Spacer()
+
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal)
+            }
+
+            if isExpanded {
+                // Response Type Dropdown with Dismiss Button
+                VStack(alignment: .leading, spacing: 8) {
                 
                 HStack(spacing: 12) {
                     Picker("Response Type", selection: $selectedResponse) {
@@ -925,6 +945,7 @@ struct ProviderReplyBox: View {
             .disabled(isSubmitting)
             .padding(.horizontal)
             .padding(.bottom, 8)
+            }  // Close if isExpanded
         }
         .background(Color.adaptiveBackground(for: colorScheme))
         .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: -2)
