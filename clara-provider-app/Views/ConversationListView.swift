@@ -2,57 +2,30 @@ import SwiftUI
 
 struct ConversationListView: View {
     @EnvironmentObject var store: ProviderConversationStore
-    @State private var selectedTab: MainTab = .reviews  // New: main tab selection
-    @State private var selectedReviewFilter: ReviewFilter = .pending  // New: sub-filter for reviews
-    @State private var selectedMessageFilter: MessageFilter = .unread  // New: sub-filter for messages
+    @State private var selectedReviewFilter: ReviewFilter = .pending  // Sub-filter for reviews
     @State private var searchText: String = ""
     @Environment(\.colorScheme) var colorScheme
     @State private var notificationObserver: NSObjectProtocol?
     @State private var showScheduleFollowUp: Bool = false
     @State private var selectedRequestForFollowUp: ProviderReviewRequestDetail?
-
-    enum MainTab {
-        case reviews, messages
-    }
+    @State private var navigateToAllMessages = false  // Navigation trigger for All Messages
 
     enum ReviewFilter {
         case pending, flagged, all
     }
 
-    enum MessageFilter {
-        case unread, all
-    }
-
     var filteredRequests: [ProviderReviewRequestDetail] {
         var requests = store.reviewRequests
 
-        // Filter by main tab and sub-filter
-        if selectedTab == .reviews {
-            switch selectedReviewFilter {
-            case .pending:
-                requests = requests.filter { $0.status == "pending" }
-            case .flagged:
-                requests = requests.filter { $0.isFlagged == true }
-            case .all:
-                // Show all review requests (no filtering)
-                break
-            }
-        } else {
-            // Messages tab: show conversations with active messaging (responded status)
-            requests = requests.filter { $0.status?.lowercased() == "responded" }
-
-            // Apply message sub-filter
-            switch selectedMessageFilter {
-            case .unread:
-                // Demo: Filter to only show conversations with unread messages (hash-based)
-                requests = requests.filter { request in
-                    let hash = abs(request.conversationId.hashValue)
-                    return (hash % 3) == 0  // ~33% have unread messages
-                }
-            case .all:
-                // Show all conversations with messaging enabled
-                break
-            }
+        // Filter by review filter
+        switch selectedReviewFilter {
+        case .pending:
+            requests = requests.filter { $0.status == "pending" }
+        case .flagged:
+            requests = requests.filter { $0.isFlagged == true }
+        case .all:
+            // Show all review requests (no filtering)
+            break
         }
 
         // Filter by search text
@@ -70,98 +43,78 @@ struct ConversationListView: View {
         store.pendingCount > 0 || store.flaggedCount > 0
     }
 
-    var hasUnreadMessages: Bool {
-        store.messagesUnreadCount > 0
-    }
-    
     var body: some View {
         VStack(spacing: 0) {
-            // Main tab buttons: Reviews and Messages
+            // Main buttons: Reviews and All Messages
             HStack(spacing: 12) {
-                MainTabButton(
-                    title: "Reviews",
-                    count: store.pendingCount,
-                    isSelected: selectedTab == .reviews,
-                    hasAlert: hasPendingReviews,
-                    colorScheme: colorScheme
-                ) {
-                    selectedTab = .reviews
+                // Reviews section (selected/current view)
+                HStack(spacing: 6) {
+                    Text("Reviews")
+                        .font(.rethinkSansBold(17, relativeTo: .headline))
+                    Text("(\(store.pendingCount))")
+                        .font(.system(size: 15, weight: .semibold, design: .monospaced))
                 }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(Color.primaryCoral)
+                .cornerRadius(10)
 
-                MainTabButton(
-                    title: "Messages",
-                    count: store.messagesUnreadCount,
-                    isSelected: selectedTab == .messages,
-                    hasAlert: hasUnreadMessages,
-                    colorScheme: colorScheme
-                ) {
-                    selectedTab = .messages
+                // All Messages button - navigates to AllMessagesView
+                NavigationLink(destination: AllMessagesView().environmentObject(store)) {
+                    HStack(spacing: 6) {
+                        Text("All Messages")
+                            .font(.rethinkSansBold(17, relativeTo: .headline))
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundColor(Color.adaptiveLabel(for: colorScheme))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color.clear)
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.adaptiveSecondaryLabel(for: colorScheme).opacity(0.3), lineWidth: 1)
+                    )
                 }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .background(Color.adaptiveBackground(for: colorScheme))
 
-            // Sub-filter buttons for Reviews (when Reviews tab is selected)
-            if selectedTab == .reviews {
-                HStack(spacing: 12) {
-                    SubFilterButton(
-                        title: "Pending",
-                        count: store.pendingCount,
-                        isSelected: selectedReviewFilter == .pending
-                    ) {
-                        selectedReviewFilter = .pending
-                    }
-                    .frame(maxWidth: .infinity)
-
-                    SubFilterButton(
-                        title: "Flagged",
-                        count: store.flaggedCount,
-                        isSelected: selectedReviewFilter == .flagged
-                    ) {
-                        selectedReviewFilter = .flagged
-                    }
-                    .frame(maxWidth: .infinity)
-
-                    SubFilterButton(
-                        title: "All",
-                        count: store.reviewRequests.count,
-                        isSelected: selectedReviewFilter == .all
-                    ) {
-                        selectedReviewFilter = .all
-                    }
-                    .frame(maxWidth: .infinity)
+            // Sub-filter buttons for Reviews
+            HStack(spacing: 12) {
+                SubFilterButton(
+                    title: "Pending",
+                    count: store.pendingCount,
+                    isSelected: selectedReviewFilter == .pending
+                ) {
+                    selectedReviewFilter = .pending
                 }
-                .padding(.horizontal, 16)  // Align with main buttons
-                .padding(.vertical, 6)
-                .background(Color.adaptiveBackground(for: colorScheme))
-            }
+                .frame(maxWidth: .infinity)
 
-            // Sub-filter buttons for Messages (when Messages tab is selected)
-            if selectedTab == .messages {
-                HStack(spacing: 12) {
-                    SubFilterButton(
-                        title: "Unread",
-                        count: store.messagesUnreadCount,
-                        isSelected: selectedMessageFilter == .unread
-                    ) {
-                        selectedMessageFilter = .unread
-                    }
-                    .frame(maxWidth: .infinity)
-
-                    SubFilterButton(
-                        title: "All",
-                        count: store.reviewRequests.filter { $0.status?.lowercased() == "responded" }.count,
-                        isSelected: selectedMessageFilter == .all
-                    ) {
-                        selectedMessageFilter = .all
-                    }
-                    .frame(maxWidth: .infinity)
+                SubFilterButton(
+                    title: "Flagged",
+                    count: store.flaggedCount,
+                    isSelected: selectedReviewFilter == .flagged
+                ) {
+                    selectedReviewFilter = .flagged
                 }
-                .padding(.horizontal, 16)  // Align with main buttons
-                .padding(.vertical, 6)
-                .background(Color.adaptiveBackground(for: colorScheme))
+                .frame(maxWidth: .infinity)
+
+                SubFilterButton(
+                    title: "All",
+                    count: store.reviewRequests.count,
+                    isSelected: selectedReviewFilter == .all
+                ) {
+                    selectedReviewFilter = .all
+                }
+                .frame(maxWidth: .infinity)
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 6)
+            .background(Color.adaptiveBackground(for: colorScheme))
 
             Divider()
             
@@ -307,44 +260,6 @@ struct ConversationListView: View {
                 NotificationCenter.default.removeObserver(observer)
                 notificationObserver = nil
             }
-        }
-    }
-}
-
-// Main tab button: Reviews or Messages
-struct MainTabButton: View {
-    let title: String
-    let count: Int
-    let isSelected: Bool
-    let hasAlert: Bool
-    let colorScheme: ColorScheme
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: {
-            HapticFeedback.selection()
-            action()
-        }) {
-            HStack(spacing: 6) {
-                Text(title)
-                    .font(.rethinkSansBold(17, relativeTo: .headline))
-
-                Text("(\(count))")
-                    .font(.system(size: 15, weight: .semibold, design: .monospaced))
-            }
-            .foregroundColor(isSelected ? .white : Color.adaptiveLabel(for: colorScheme))
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .background(isSelected ? Color.primaryCoral : Color.clear)
-            .cornerRadius(10)
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(
-                        hasAlert && !isSelected ? Color.primaryCoral : Color.clear,
-                        lineWidth: 2
-                    )
-                    .padding(1)  // Small space between outline and fill
-            )
         }
     }
 }

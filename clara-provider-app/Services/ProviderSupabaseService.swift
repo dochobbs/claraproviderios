@@ -694,6 +694,138 @@ class ProviderSupabaseService: SupabaseServiceBase {
         let request = createRequest(url: url, method: "GET")
         return try await executeRequest(request, responseType: [PatientSummary].self)
     }
+
+    // MARK: - Fetch Messages for Conversation
+
+    /// Fetch all messages for a specific conversation from messages table
+    func fetchMessagesForConversation(conversationId: UUID) async throws -> [MessageDetail] {
+        let urlString = "\(projectURL)/rest/v1/messages?conversation_id=eq.\(conversationId.uuidString)&select=id,content,timestamp,is_from_user&order=timestamp.asc"
+
+        guard let url = URL(string: urlString) else {
+            throw SupabaseError.invalidResponse
+        }
+
+        let request = createRequest(url: url, method: "GET")
+
+        os_log("[ProviderSupabaseService] Fetching messages for conversation_id: %{public}s", log: .default, type: .debug, conversationId.uuidString)
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw SupabaseError.invalidResponse
+            }
+
+            guard (200...299).contains(httpResponse.statusCode) else {
+                let errorMessage = String(data: data, encoding: .utf8) ?? "Unknown error"
+                throw SupabaseError.requestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
+            }
+
+            let jsonArray = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] ?? []
+
+            os_log("[ProviderSupabaseService] Fetched %d messages for conversation", log: .default, type: .info, jsonArray.count)
+
+            let formatter = ISO8601DateFormatter()
+            let messages = jsonArray.compactMap { item -> MessageDetail? in
+                guard let id = item["id"] as? String,
+                      let content = item["content"] as? String,
+                      let timestampString = item["timestamp"] as? String,
+                      let timestamp = formatter.date(from: timestampString) else {
+                    return nil
+                }
+
+                let isFromUser = item["is_from_user"] as? Bool ?? false
+
+                return MessageDetail(
+                    id: id,
+                    content: content,
+                    timestamp: timestamp,
+                    isFromUser: isFromUser
+                )
+            }
+
+            return messages
+        } catch {
+            os_log("[ProviderSupabaseService] Error fetching messages for conversation: %{public}s", log: .default, type: .error, String(describing: error))
+            throw error
+        }
+    }
+
+    // MARK: - Fetch All Conversations from Messages Table
+
+    /// Fetch all conversations from messages table, grouped by conversation_id
+    /// Returns a list of conversations with their latest message timestamp
+    func fetchAllConversationsFromMessages() async throws -> [MessageConversationSummary] {
+        // Query the messages table and select distinct conversation_ids with latest timestamp
+        // Note: Supabase doesn't have a GROUP BY with aggregates in REST API,
+        // so we fetch all messages and group them client-side
+        let urlString = "\(projectURL)/rest/v1/messages?select=conversation_id,timestamp,content,is_from_user&order=timestamp.desc"
+
+        guard let url = URL(string: urlString) else {
+            throw SupabaseError.invalidResponse
+        }
+
+        let request = createRequest(url: url, method: "GET")
+
+        os_log("[ProviderSupabaseService] Fetching all messages from messages table", log: .default, type: .debug)
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw SupabaseError.invalidResponse
+            }
+
+            guard (200...299).contains(httpResponse.statusCode) else {
+                let errorMessage = String(data: data, encoding: .utf8) ?? "Unknown error"
+                throw SupabaseError.requestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
+            }
+
+            // Decode messages
+            let jsonArray = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] ?? []
+
+            os_log("[ProviderSupabaseService] Fetched %d messages from messages table", log: .default, type: .info, jsonArray.count)
+
+            // Group by conversation_id and create summaries
+            var conversationsDict: [String: MessageConversationSummary] = [:]
+
+            for item in jsonArray {
+                guard let conversationIdString = item["conversation_id"] as? String else {
+                    continue
+                }
+
+                let timestamp = item["timestamp"] as? String
+                let messageContent = item["content"] as? String
+                let isFromUser = item["is_from_user"] as? Bool ?? false
+
+                // If this conversation doesn't exist yet, or if this message is newer, update the summary
+                if conversationsDict[conversationIdString] == nil {
+                    // Create new conversation summary (userId will be nil since messages table doesn't have it)
+                    conversationsDict[conversationIdString] = MessageConversationSummary(
+                        conversationId: conversationIdString,
+                        userId: nil,
+                        latestTimestamp: timestamp,
+                        latestMessagePreview: messageContent,
+                        latestIsFromUser: isFromUser
+                    )
+                }
+            }
+
+            // Convert to array and sort by latest timestamp (descending)
+            let summaries = conversationsDict.values.sorted { (a, b) in
+                guard let aTime = a.latestTimestamp, let bTime = b.latestTimestamp else {
+                    return false
+                }
+                return aTime > bTime
+            }
+
+            os_log("[ProviderSupabaseService] Found %d unique conversations from messages", log: .default, type: .info, summaries.count)
+            return summaries
+        } catch {
+            os_log("[ProviderSupabaseService] Error fetching messages: %{public}s", log: .default, type: .error, String(describing: error))
+            throw error
+        }
+    }
     
     // MARK: - Dashboard Statistics
     
@@ -792,4 +924,31 @@ struct PatientSummary: Codable, Identifiable, Hashable {
         case userId = "user_id"
         case name
     }
+}
+
+// MARK: - Message Conversation Summary Model
+struct MessageConversationSummary: Identifiable, Hashable {
+    let id: String  // conversation_id as identifier
+    let conversationId: String
+    let userId: String?
+    let latestTimestamp: String?
+    let latestMessagePreview: String?
+    let latestIsFromUser: Bool
+
+    init(conversationId: String, userId: String?, latestTimestamp: String?, latestMessagePreview: String?, latestIsFromUser: Bool) {
+        self.id = conversationId
+        self.conversationId = conversationId
+        self.userId = userId
+        self.latestTimestamp = latestTimestamp
+        self.latestMessagePreview = latestMessagePreview
+        self.latestIsFromUser = latestIsFromUser
+    }
+}
+
+// MARK: - Message Detail Model
+struct MessageDetail: Identifiable {
+    let id: String
+    let content: String
+    let timestamp: Date
+    let isFromUser: Bool
 }

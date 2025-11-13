@@ -20,14 +20,6 @@ struct ConversationDetailView: View {
     @State private var isFlagging = false
     @State private var isCancellingFollowUp = false
     @State private var shareItem: ShareItem? = nil
-    @State private var selectedTab: ConversationTab = .review
-    @State private var unreadMessagesCount: Int = 0  // Demo only - will be real count later
-
-    // MARK: - Tab Selection
-    enum ConversationTab {
-        case review
-        case messages
-    }
 
     // MARK: - Message Pagination
     @State private var allMessages: [Message] = []  // Store full message list
@@ -70,36 +62,10 @@ struct ConversationDetailView: View {
                 .padding()
             }
 
-            // Tab selector
-            HStack(spacing: 0) {
-                TabSelectorButton(
-                    title: "Review",
-                    isSelected: selectedTab == .review,
-                    badge: nil
-                ) {
-                    selectedTab = .review
-                }
-
-                TabSelectorButton(
-                    title: "Messages",
-                    isSelected: selectedTab == .messages,
-                    badge: unreadMessagesCount > 0 ? "\(unreadMessagesCount)" : nil
-                ) {
-                    selectedTab = .messages
-                    unreadMessagesCount = 0  // Mark as read when opening
-                }
-            }
-            .padding(.horizontal)
-            .background(Color.adaptiveBackground(for: colorScheme))
-
             Divider()
 
-            // Tab content
-            if selectedTab == .review {
-                reviewTabContent
-            } else {
-                messagesTabContent
-            }
+            // Review content
+            reviewTabContent
         }
         .background(Color.adaptiveBackground(for: colorScheme))
         .navigationTitle(conversationDetail?.conversationTitle ?? "Conversation")
@@ -359,15 +325,6 @@ struct ConversationDetailView: View {
                 )
             }
         }
-    }
-
-    // MARK: - Messages Tab Content
-
-    private var messagesTabContent: some View {
-        MessagingDemoView(
-            conversationId: conversationId,
-            patientName: conversationDetail?.childName
-        )
     }
 
     private func loadConversationData() async {
@@ -1388,69 +1345,3 @@ struct ReviewResultView: View {
 }
 
 
-// MARK: - Share Item
-
-struct ShareItem: Identifiable {
-    let id = UUID()
-    let content: String
-}
-
-// MARK: - ShareSheet Helper
-
-struct ShareSheet: UIViewControllerRepresentable {
-    let activityItems: [Any]
-    let applicationActivities: [UIActivity]? = nil
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        let controller = UIActivityViewController(
-            activityItems: activityItems,
-            applicationActivities: applicationActivities
-        )
-        return controller
-    }
-
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
-}
-
-// MARK: - Tab Selector Button
-
-struct TabSelectorButton: View {
-    let title: String
-    let isSelected: Bool
-    let badge: String?
-    let action: () -> Void
-    @Environment(\.colorScheme) var colorScheme
-
-    var body: some View {
-        Button(action: {
-            HapticFeedback.light()
-            action()
-        }) {
-            HStack(spacing: 4) {
-                Text(title)
-                    .font(isSelected ? .rethinkSansBold(15, relativeTo: .subheadline) : .rethinkSans(15, relativeTo: .subheadline))
-                
-                if let badge = badge {
-                    Text(badge)
-                        .font(.rethinkSansBold(12, relativeTo: .caption2))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.primaryCoral)
-                        .cornerRadius(10)
-                }
-            }
-            .foregroundColor(isSelected ? Color.primaryCoral : Color.adaptiveLabel(for: colorScheme))
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .background(
-                VStack(spacing: 0) {
-                    Spacer()
-                    Rectangle()
-                        .fill(isSelected ? Color.primaryCoral : Color.clear)
-                        .frame(height: 3)
-                }
-            )
-        }
-    }
-}
