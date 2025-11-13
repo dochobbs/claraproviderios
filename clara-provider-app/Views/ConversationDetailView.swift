@@ -934,19 +934,20 @@ struct ProviderReplyBox: View {
 struct PatientInfoCard: View {
     let detail: ProviderReviewRequestDetail
     @Environment(\.colorScheme) var colorScheme
-    
+    @State private var summaryExpanded: Bool = true  // Start expanded
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "person.circle.fill")
                     .font(.title2)
                     .foregroundColor(.primaryCoral)
-                
+
                 VStack(alignment: .leading, spacing: 4) {
                     if let childName = detail.childName {
                         Text(childName)
                             .font(.rethinkSansBold(17, relativeTo: .headline))
-                        
+
                         if let age = detail.childAge {
                             Text("Age: \(age)")
                                 .font(.system(.subheadline, design: .monospaced))
@@ -957,27 +958,46 @@ struct PatientInfoCard: View {
                             .font(.rethinkSansBold(17, relativeTo: .headline))
                     }
                 }
-                
+
                 Spacer()
-                
+
                 if let triageOutcome = detail.triageOutcome {
                     TriageBadge(outcome: triageOutcome)
                 }
             }
-            
+
             if let summary = detail.conversationSummary, !summary.isEmpty {
                 Divider()
-                Text("Summary")
-                    .font(.rethinkSans(12, relativeTo: .caption))
-                    .foregroundColor(.secondary)
-                    .textCase(.uppercase)
 
-                ScrollView {
-                    Text(summary)
-                        .font(.system(.subheadline, design: .monospaced))
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                // Tappable Summary header
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        summaryExpanded.toggle()
+                    }
+                    HapticFeedback.light()
+                }) {
+                    HStack {
+                        Text("Summary")
+                            .font(.rethinkSans(12, relativeTo: .caption))
+                            .foregroundColor(.secondary)
+                            .textCase(.uppercase)
+
+                        Spacer()
+
+                        Image(systemName: summaryExpanded ? "chevron.up" : "chevron.down")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
-                .frame(maxHeight: 120)  // Limit height, allow scrolling for longer content
+
+                if summaryExpanded {
+                    ScrollView {
+                        Text(summary)
+                            .font(.system(.subheadline, design: .monospaced))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(maxHeight: 120)  // Limit height, allow scrolling for longer content
+                }
             }
         }
         .padding()
@@ -1198,6 +1218,7 @@ struct ClaraMarkdownView: View {
 struct ReviewResultView: View {
     let review: ProviderReviewRequestDetail
     var onReopen: (() -> Void)? = nil
+    @State private var responseExpanded: Bool = false  // Start collapsed
 
     var statusColor: Color {
         switch review.status?.lowercased() {
@@ -1277,9 +1298,33 @@ struct ReviewResultView: View {
 
                 if let response = review.providerResponse, !response.isEmpty {
                     Divider()
-                    Text(response)
-                        .font(.system(.subheadline, design: .monospaced))
-                        .foregroundColor(.primary)
+
+                    // Tappable Response header
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            responseExpanded.toggle()
+                        }
+                        HapticFeedback.light()
+                    }) {
+                        HStack {
+                            Text("Response")
+                                .font(.rethinkSans(12, relativeTo: .caption))
+                                .foregroundColor(.secondary)
+                                .textCase(.uppercase)
+
+                            Spacer()
+
+                            Image(systemName: responseExpanded ? "chevron.up" : "chevron.down")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+
+                    if responseExpanded {
+                        Text(response)
+                            .font(.system(.subheadline, design: .monospaced))
+                            .foregroundColor(.primary)
+                    }
                 }
 
                 // Display flag reason under review reason if flagged
