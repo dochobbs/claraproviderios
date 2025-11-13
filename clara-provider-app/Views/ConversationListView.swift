@@ -62,7 +62,7 @@ struct ConversationListView: View {
             HStack(spacing: 12) {
                 MainTabButton(
                     title: "Reviews",
-                    count: store.pendingCount + store.flaggedCount,
+                    count: store.pendingCount,
                     isSelected: selectedTab == .reviews,
                     hasAlert: hasPendingReviews,
                     colorScheme: colorScheme
