@@ -705,6 +705,14 @@ struct ConversationDetailView: View {
         }
         content += "\n"
 
+        // Add clinical summary from Clara
+        if let summary = detail.conversationSummary, !summary.isEmpty {
+            content += "CLINICAL SUMMARY:\n"
+            content += summary
+            content += "\n\n"
+        }
+        content += "\n"
+
         // Section 2: Full Conversation
         content += "═══════════════════════════════\n"
         content += "FULL CONVERSATION\n"
