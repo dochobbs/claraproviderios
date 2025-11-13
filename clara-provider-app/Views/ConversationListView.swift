@@ -62,6 +62,7 @@ struct ConversationListView: View {
             HStack(spacing: 12) {
                 MainTabButton(
                     title: "Reviews",
+                    count: store.pendingCount + store.flaggedCount,
                     isSelected: selectedTab == .reviews,
                     hasAlert: hasPendingReviews,
                     colorScheme: colorScheme
@@ -71,6 +72,7 @@ struct ConversationListView: View {
 
                 MainTabButton(
                     title: "Messages",
+                    count: store.messagesUnreadCount,
                     isSelected: selectedTab == .messages,
                     hasAlert: hasUnreadMessages,
                     colorScheme: colorScheme
@@ -113,7 +115,7 @@ struct ConversationListView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 6)
-                .background(Color.adaptiveSecondaryBackground(for: colorScheme))
+                .background(Color.adaptiveBackground(for: colorScheme))
             }
 
             Divider()
@@ -267,6 +269,7 @@ struct ConversationListView: View {
 // Main tab button: Reviews or Messages
 struct MainTabButton: View {
     let title: String
+    let count: Int
     let isSelected: Bool
     let hasAlert: Bool
     let colorScheme: ColorScheme
@@ -277,21 +280,26 @@ struct MainTabButton: View {
             HapticFeedback.selection()
             action()
         }) {
-            Text(title)
-                .font(.rethinkSansBold(17, relativeTo: .headline))
-                .foregroundColor(isSelected ? .white : Color.adaptiveLabel(for: colorScheme))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(isSelected ? Color.primaryCoral : Color.clear)
-                .cornerRadius(10)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(
-                            hasAlert && !isSelected ? Color.primaryCoral : Color.clear,
-                            lineWidth: 2
-                        )
-                        .padding(1)  // Small space between outline and fill
-                )
+            HStack(spacing: 6) {
+                Text(title)
+                    .font(.rethinkSansBold(17, relativeTo: .headline))
+
+                Text("(\(count))")
+                    .font(.system(size: 15, weight: .semibold, design: .monospaced))
+            }
+            .foregroundColor(isSelected ? .white : Color.adaptiveLabel(for: colorScheme))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(isSelected ? Color.primaryCoral : Color.clear)
+            .cornerRadius(10)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(
+                        hasAlert && !isSelected ? Color.primaryCoral : Color.clear,
+                        lineWidth: 2
+                    )
+                    .padding(1)  // Small space between outline and fill
+            )
         }
     }
 }
@@ -302,6 +310,7 @@ struct SubFilterButton: View {
     let count: Int
     let isSelected: Bool
     let action: () -> Void
+    @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
         Button(action: {
@@ -312,13 +321,20 @@ struct SubFilterButton: View {
                 Text(title)
                     .font(isSelected ? .rethinkSansBold(13, relativeTo: .subheadline) : .rethinkSans(13, relativeTo: .subheadline))
                 Text("(\(count))")
-                    .font(.system(size: 11, design: .monospaced))
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
             }
-            .foregroundColor(isSelected ? .primaryCoral : .secondary)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(isSelected ? Color.primaryCoral.opacity(0.1) : Color.clear)
-            .cornerRadius(6)
+            .foregroundColor(isSelected ? .white : Color.adaptiveLabel(for: colorScheme))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(isSelected ? Color.primaryCoral : Color.adaptiveSecondaryBackground(for: colorScheme))
+            .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(
+                        isSelected ? Color.clear : Color.adaptiveSecondaryLabel(for: colorScheme).opacity(0.3),
+                        lineWidth: 1
+                    )
+            )
         }
     }
 }
@@ -448,7 +464,7 @@ struct ConversationRowView: View {
                         }
                         .padding(.horizontal, 6)
                         .padding(.vertical, 4)
-                        .background(unreadCount > 0 ? Color.flaggedTeal : Color.gray.opacity(0.6))
+                        .background(unreadCount > 0 ? Color.orange : Color.gray.opacity(0.6))
                         .cornerRadius(6)
                     }
 
