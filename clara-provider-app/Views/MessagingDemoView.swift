@@ -65,18 +65,22 @@ struct MessagingDemoView: View {
             Divider()
 
             // Message input - stays above keyboard
-            HStack(spacing: 12) {
-                TextEditor(text: $messageText)
+            HStack(alignment: .bottom, spacing: 12) {
+                TextField("Message...", text: $messageText, axis: .vertical)
                     .font(.rethinkSans(15, relativeTo: .body))
-                    .frame(minHeight: 36, maxHeight: 100)  // ~1 line min, ~4 lines max
+                    .textFieldStyle(.plain)
+                    .lineLimit(1...4)  // Start at 1 line, grow to 4 lines max, then scroll
                     .padding(8)
-                    .scrollContentBackground(.hidden)  // Remove default TextEditor background
                     .background(colorScheme == .dark ? Color(.secondarySystemBackground) : Color.white)
                     .cornerRadius(20)
                     .overlay(
                         RoundedRectangle(cornerRadius: 20)
                             .stroke(Color.adaptiveSecondaryLabel(for: colorScheme).opacity(0.3), lineWidth: 1)
                     )
+                    .onSubmit {
+                        // Shift-Enter or Enter sends the message
+                        sendMessage()
+                    }
 
                 Button(action: sendMessage) {
                     Image(systemName: "arrow.up.circle.fill")
