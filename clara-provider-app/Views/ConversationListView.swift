@@ -4,6 +4,7 @@ struct ConversationListView: View {
     @EnvironmentObject var store: ProviderConversationStore
     @State private var selectedTab: MainTab = .reviews  // New: main tab selection
     @State private var selectedReviewFilter: ReviewFilter = .pending  // New: sub-filter for reviews
+    @State private var selectedMessageFilter: MessageFilter = .unread  // New: sub-filter for messages
     @State private var searchText: String = ""
     @Environment(\.colorScheme) var colorScheme
     @State private var notificationObserver: NSObjectProtocol?
@@ -16,6 +17,10 @@ struct ConversationListView: View {
 
     enum ReviewFilter {
         case pending, flagged, all
+    }
+
+    enum MessageFilter {
+        case unread, all
     }
 
     var filteredRequests: [ProviderReviewRequestDetail] {
@@ -35,6 +40,19 @@ struct ConversationListView: View {
         } else {
             // Messages tab: show conversations with active messaging (responded status)
             requests = requests.filter { $0.status?.lowercased() == "responded" }
+
+            // Apply message sub-filter
+            switch selectedMessageFilter {
+            case .unread:
+                // Demo: Filter to only show conversations with unread messages (hash-based)
+                requests = requests.filter { request in
+                    let hash = abs(request.conversationId.hashValue)
+                    return (hash % 3) == 0  // ~33% have unread messages
+                }
+            case .all:
+                // Show all conversations with messaging enabled
+                break
+            }
         }
 
         // Filter by search text
@@ -94,6 +112,7 @@ struct ConversationListView: View {
                     ) {
                         selectedReviewFilter = .pending
                     }
+                    .frame(maxWidth: .infinity)
 
                     SubFilterButton(
                         title: "Flagged",
@@ -102,6 +121,7 @@ struct ConversationListView: View {
                     ) {
                         selectedReviewFilter = .flagged
                     }
+                    .frame(maxWidth: .infinity)
 
                     SubFilterButton(
                         title: "All",
@@ -110,8 +130,33 @@ struct ConversationListView: View {
                     ) {
                         selectedReviewFilter = .all
                     }
+                    .frame(maxWidth: .infinity)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 6)
+                .background(Color.adaptiveBackground(for: colorScheme))
+            }
 
-                    Spacer()
+            // Sub-filter buttons for Messages (when Messages tab is selected)
+            if selectedTab == .messages {
+                HStack(spacing: 8) {
+                    SubFilterButton(
+                        title: "Unread",
+                        count: store.messagesUnreadCount,
+                        isSelected: selectedMessageFilter == .unread
+                    ) {
+                        selectedMessageFilter = .unread
+                    }
+                    .frame(maxWidth: .infinity)
+
+                    SubFilterButton(
+                        title: "All",
+                        count: store.reviewRequests.filter { $0.status?.lowercased() == "responded" }.count,
+                        isSelected: selectedMessageFilter == .all
+                    ) {
+                        selectedMessageFilter = .all
+                    }
+                    .frame(maxWidth: .infinity)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 6)
