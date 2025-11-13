@@ -19,8 +19,7 @@ struct ConversationDetailView: View {
     @State private var flagReason = ""
     @State private var isFlagging = false
     @State private var isCancellingFollowUp = false
-    @State private var showingShareSheet = false
-    @State private var shareContent: String = ""
+    @State private var shareItem: ShareItem? = nil
     @State private var selectedTab: ConversationTab = .review
     @State private var unreadMessagesCount: Int = 0  // Demo only - will be real count later
 
@@ -208,8 +207,8 @@ struct ConversationDetailView: View {
                 }
             }
         }
-        .sheet(isPresented: $showingShareSheet) {
-            ShareSheet(activityItems: [shareContent])
+        .sheet(item: $shareItem) { item in
+            ShareSheet(activityItems: [item.content])
         }
         .onAppear {
             // Prepopulate reply with default "Agree" message since it's the default selection
@@ -734,13 +733,8 @@ struct ConversationDetailView: View {
         print("[Share] Content length: \(content.count) characters")
         print("[Share] First 100 chars: \(String(content.prefix(100)))")
 
-        // Ensure content is set before showing sheet
-        Task { @MainActor in
-            shareContent = content
-            // Small delay to ensure state is updated before sheet appears
-            try? await Task.sleep(nanoseconds: 50_000_000) // 0.05 seconds
-            showingShareSheet = true
-        }
+        // Create share item directly with content
+        shareItem = ShareItem(content: content)
     }
 
     /// Reopen a completed response to allow editing
@@ -1315,6 +1309,13 @@ struct ReviewResultView: View {
     }
 }
 
+
+// MARK: - Share Item
+
+struct ShareItem: Identifiable {
+    let id = UUID()
+    let content: String
+}
 
 // MARK: - ShareSheet Helper
 
