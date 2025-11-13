@@ -2,31 +2,39 @@ import SwiftUI
 
 struct ConversationListView: View {
     @EnvironmentObject var store: ProviderConversationStore
-    @State private var selectedStatus: String? = "pending"
+    @State private var selectedTab: MainTab = .reviews  // New: main tab selection
+    @State private var selectedReviewFilter: ReviewFilter = .pending  // New: sub-filter for reviews
     @State private var searchText: String = ""
     @Environment(\.colorScheme) var colorScheme
     @State private var notificationObserver: NSObjectProtocol?
     @State private var showScheduleFollowUp: Bool = false
     @State private var selectedRequestForFollowUp: ProviderReviewRequestDetail?
-    
+
+    enum MainTab {
+        case reviews, messages
+    }
+
+    enum ReviewFilter {
+        case pending, flagged, all
+    }
+
     var filteredRequests: [ProviderReviewRequestDetail] {
         var requests = store.reviewRequests
 
-        // Filter by status or flagged/follow-up/messages state
-        if let status = selectedStatus {
-            if status == "flagged" {
-                // Special case: filter by is_flagged boolean, not status
+        // Filter by main tab and sub-filter
+        if selectedTab == .reviews {
+            switch selectedReviewFilter {
+            case .pending:
+                requests = requests.filter { $0.status == "pending" }
+            case .flagged:
                 requests = requests.filter { $0.isFlagged == true }
-            } else if status == "follow-ups" {
-                // Special case: filter by schedule_followup boolean, not status
-                requests = requests.filter { $0.scheduleFollowup == true }
-            } else if status == "messages" {
-                // Special case: filter by conversations with active messaging (responded status)
-                requests = requests.filter { $0.status?.lowercased() == "responded" }
-            } else {
-                // Filter by status for other values
-                requests = requests.filter { $0.status == status }
+            case .all:
+                // Show all review requests (no filtering)
+                break
             }
+        } else {
+            // Messages tab: show conversations with active messaging (responded status)
+            requests = requests.filter { $0.status?.lowercased() == "responded" }
         }
 
         // Filter by search text
@@ -39,59 +47,74 @@ struct ConversationListView: View {
 
         return requests
     }
+
+    var hasPendingReviews: Bool {
+        store.pendingCount > 0 || store.flaggedCount > 0
+    }
+
+    var hasUnreadMessages: Bool {
+        store.messagesUnreadCount > 0
+    }
     
     var body: some View {
         VStack(spacing: 0) {
-            // Status filter bar (no title above)
-            HStack(spacing: 4) {
-                StatusFilterButton(
-                    title: "Pend-R",
-                    count: store.pendingCount,
-                    isSelected: selectedStatus == "pending"
+            // Main tab buttons: Reviews and Messages
+            HStack(spacing: 12) {
+                MainTabButton(
+                    title: "Reviews",
+                    isSelected: selectedTab == .reviews,
+                    hasAlert: hasPendingReviews,
+                    colorScheme: colorScheme
                 ) {
-                    selectedStatus = "pending"
+                    selectedTab = .reviews
                 }
-                .frame(maxWidth: .infinity)
 
-                StatusFilterButton(
-                    title: "Flag-R",
-                    count: store.flaggedCount,
-                    isSelected: selectedStatus == "flagged"
+                MainTabButton(
+                    title: "Messages",
+                    isSelected: selectedTab == .messages,
+                    hasAlert: hasUnreadMessages,
+                    colorScheme: colorScheme
                 ) {
-                    selectedStatus = "flagged"
+                    selectedTab = .messages
                 }
-                .frame(maxWidth: .infinity)
-
-                StatusFilterButton(
-                    title: "All-R",
-                    count: store.reviewRequests.count,
-                    isSelected: selectedStatus == nil
-                ) {
-                    selectedStatus = nil
-                }
-                .frame(maxWidth: .infinity)
-
-                StatusFilterButton(
-                    title: "F/U",
-                    count: store.followUpCount,
-                    isSelected: selectedStatus == "follow-ups"
-                ) {
-                    selectedStatus = "follow-ups"
-                }
-                .frame(maxWidth: .infinity)
-
-                StatusFilterButton(
-                    title: "Msgs",
-                    count: store.messagesUnreadCount,
-                    isSelected: selectedStatus == "messages"
-                ) {
-                    selectedStatus = "messages"
-                }
-                .frame(maxWidth: .infinity)
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
             .background(Color.adaptiveBackground(for: colorScheme))
+
+            // Sub-filter buttons for Reviews (when Reviews tab is selected)
+            if selectedTab == .reviews {
+                HStack(spacing: 8) {
+                    SubFilterButton(
+                        title: "Pending",
+                        count: store.pendingCount,
+                        isSelected: selectedReviewFilter == .pending
+                    ) {
+                        selectedReviewFilter = .pending
+                    }
+
+                    SubFilterButton(
+                        title: "Flagged",
+                        count: store.flaggedCount,
+                        isSelected: selectedReviewFilter == .flagged
+                    ) {
+                        selectedReviewFilter = .flagged
+                    }
+
+                    SubFilterButton(
+                        title: "All",
+                        count: store.reviewRequests.count,
+                        isSelected: selectedReviewFilter == .all
+                    ) {
+                        selectedReviewFilter = .all
+                    }
+
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 6)
+                .background(Color.adaptiveSecondaryBackground(for: colorScheme))
+            }
 
             Divider()
             
@@ -241,6 +264,65 @@ struct ConversationListView: View {
     }
 }
 
+// Main tab button: Reviews or Messages
+struct MainTabButton: View {
+    let title: String
+    let isSelected: Bool
+    let hasAlert: Bool
+    let colorScheme: ColorScheme
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: {
+            HapticFeedback.selection()
+            action()
+        }) {
+            Text(title)
+                .font(.rethinkSansBold(17, relativeTo: .headline))
+                .foregroundColor(isSelected ? .white : Color.adaptiveLabel(for: colorScheme))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(isSelected ? Color.primaryCoral : Color.clear)
+                .cornerRadius(10)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(
+                            hasAlert && !isSelected ? Color.primaryCoral : Color.clear,
+                            lineWidth: 2
+                        )
+                        .padding(1)  // Small space between outline and fill
+                )
+        }
+    }
+}
+
+// Sub-filter button for Reviews: Pending, Flagged, All
+struct SubFilterButton: View {
+    let title: String
+    let count: Int
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: {
+            HapticFeedback.light()
+            action()
+        }) {
+            HStack(spacing: 4) {
+                Text(title)
+                    .font(isSelected ? .rethinkSansBold(13, relativeTo: .subheadline) : .rethinkSans(13, relativeTo: .subheadline))
+                Text("(\(count))")
+                    .font(.system(size: 11, design: .monospaced))
+            }
+            .foregroundColor(isSelected ? .primaryCoral : .secondary)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(isSelected ? Color.primaryCoral.opacity(0.1) : Color.clear)
+            .cornerRadius(6)
+        }
+    }
+}
+
 struct StatusFilterButton: View {
     let title: String
     let count: Int
@@ -306,7 +388,7 @@ struct ConversationRowView: View {
                             .foregroundColor(.white)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 4)
-                            .background(Color.orange)
+                            .background(Color.flaggedTeal)
                             .cornerRadius(6)
                     }
 
@@ -438,7 +520,7 @@ struct StatusBadge: View {
     var color: Color {
         switch status {
         case "pending":
-            return .orange
+            return .primaryCoral
         case "escalated":
             return .red
         case "responded":

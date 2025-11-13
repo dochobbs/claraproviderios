@@ -133,7 +133,7 @@ struct ConversationDetailView: View {
                             }
                         }) {
                             Image(systemName: detail.isFlagged == true ? "flag.fill" : "flag")
-                                .foregroundColor(.orange)
+                                .foregroundColor(.flaggedTeal)
                         }
                         .accessibilityLabel(detail.isFlagged == true ? "Unflag conversation" : "Flag conversation")
                     } else {
@@ -971,8 +971,13 @@ struct PatientInfoCard: View {
                     .font(.rethinkSans(12, relativeTo: .caption))
                     .foregroundColor(.secondary)
                     .textCase(.uppercase)
-                Text(summary)
-                    .font(.system(.subheadline, design: .monospaced))
+
+                ScrollView {
+                    Text(summary)
+                        .font(.system(.subheadline, design: .monospaced))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(maxHeight: 120)  // Limit height, allow scrolling for longer content
             }
         }
         .padding()
@@ -1254,7 +1259,7 @@ struct ReviewResultView: View {
                                     .foregroundColor(.white)
                                     .padding(.horizontal, 5)
                                     .padding(.vertical, 3)
-                                    .background(Color.orange)
+                                    .background(Color.flaggedTeal)
                                     .cornerRadius(4)
                             }
                         }
@@ -1283,12 +1288,12 @@ struct ReviewResultView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 6) {
                             Image(systemName: "flag.fill")
-                                .foregroundColor(.orange)
+                                .foregroundColor(.flaggedTeal)
                                 .font(.caption)
 
                             Text("Reason for Flag")
                                 .font(.system(.caption, design: .monospaced))
-                                .foregroundColor(.orange)
+                                .foregroundColor(.flaggedTeal)
                                 .fontWeight(.semibold)
                         }
 
