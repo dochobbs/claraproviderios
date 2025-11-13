@@ -272,6 +272,28 @@ struct ConversationRowView: View {
                 Spacer()
 
                 HStack(spacing: 6) {
+                    // Show message badge with unread count (demo - needs backend)
+                    // TODO: Replace with actual message count from backend
+                    let hasMessages = true  // Demo: assume all conversations have messages
+                    let unreadCount = 0     // Demo: will be populated by backend
+
+                    if hasMessages {
+                        HStack(spacing: 2) {
+                            Image(systemName: unreadCount > 0 ? "message.fill" : "message")
+                                .font(.system(size: 12))
+                                .foregroundColor(.white)
+                            if unreadCount > 0 {
+                                Text("\(unreadCount)")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(.white)
+                            }
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 4)
+                        .background(unreadCount > 0 ? Color.flaggedTeal : Color.gray.opacity(0.6))
+                        .cornerRadius(6)
+                    }
+
                     // Show clock badge if follow-up scheduled - tappable to cancel
                     if request.scheduleFollowup == true {
                         Button(action: {

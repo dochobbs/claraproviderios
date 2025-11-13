@@ -44,8 +44,9 @@ struct MessagingDemoView: View {
             HStack(spacing: 12) {
                 TextEditor(text: $messageText)
                     .font(.rethinkSans(15, relativeTo: .body))
-                    .frame(minHeight: 40, maxHeight: 100)
+                    .frame(minHeight: 36, maxHeight: 100)  // ~1 line min, ~4 lines max
                     .padding(8)
+                    .scrollContentBackground(.hidden)  // Remove default TextEditor background
                     .background(colorScheme == .dark ? Color(.secondarySystemBackground) : Color.white)
                     .cornerRadius(20)
                     .overlay(
