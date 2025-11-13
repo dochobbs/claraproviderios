@@ -12,44 +12,59 @@ struct MessagingDemoView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Messages list
-            if demoMessages.isEmpty {
-                VStack(spacing: 16) {
-                    Image(systemName: "bubble.left.and.bubble.right")
-                        .font(.system(size: 48))
-                        .foregroundColor(.primaryCoral)
-                    Text("Start Messaging")
-                        .font(.rethinkSansBold(20, relativeTo: .title3))
-                        .foregroundColor(Color.adaptiveLabel(for: colorScheme))
-                    Text("Send a message to \(patientName ?? "the parent") to start a conversation")
-                        .font(.rethinkSans(15, relativeTo: .subheadline))
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40)
-
-                    Text("This is a demo interface. Real messages will be saved to the database.")
-                        .font(.rethinkSans(12, relativeTo: .caption))
-                        .foregroundColor(.orange)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40)
-                        .padding(.top, 8)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding()
-            } else {
+            // Messages list with ScrollViewReader for auto-scrolling
+            ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(spacing: 12) {
-                        ForEach(demoMessages) { message in
-                            DemoMessageBubbleView(message: message)
+                    if demoMessages.isEmpty {
+                        VStack(spacing: 16) {
+                            Image(systemName: "bubble.left.and.bubble.right")
+                                .font(.system(size: 48))
+                                .foregroundColor(.primaryCoral)
+                            Text("Start Messaging")
+                                .font(.rethinkSansBold(20, relativeTo: .title3))
+                                .foregroundColor(Color.adaptiveLabel(for: colorScheme))
+                            Text("Send a message to \(patientName ?? "the parent") to start a conversation")
+                                .font(.rethinkSans(15, relativeTo: .subheadline))
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 40)
+
+                            Text("This is a demo interface. Real messages will be saved to the database.")
+                                .font(.rethinkSans(12, relativeTo: .caption))
+                                .foregroundColor(.orange)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 40)
+                                .padding(.top, 8)
                         }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .padding()
+                    } else {
+                        LazyVStack(spacing: 12) {
+                            ForEach(demoMessages) { message in
+                                DemoMessageBubbleView(message: message)
+                            }
+
+                            // Invisible anchor for scrolling to bottom
+                            Color.clear
+                                .frame(height: 1)
+                                .id("bottom")
+                        }
+                        .padding()
                     }
-                    .padding()
+                }
+                .scrollDismissesKeyboard(.interactively)  // Allow dismissing keyboard by scrolling
+                .ignoresSafeArea(.keyboard, edges: .bottom)  // Allow ScrollView to extend under keyboard
+                .onChange(of: demoMessages.count) { _ in
+                    // Auto-scroll to bottom when new message is added
+                    withAnimation {
+                        proxy.scrollTo("bottom", anchor: .bottom)
+                    }
                 }
             }
 
             Divider()
 
-            // Message input
+            // Message input - stays above keyboard
             HStack(spacing: 12) {
                 TextEditor(text: $messageText)
                     .font(.rethinkSans(15, relativeTo: .body))
