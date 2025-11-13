@@ -19,6 +19,16 @@ struct ConversationDetailView: View {
     @State private var flagReason = ""
     @State private var isFlagging = false
     @State private var isCancellingFollowUp = false
+    @State private var showingShareSheet = false
+    @State private var shareContent: String = ""
+    @State private var selectedTab: ConversationTab = .review
+    @State private var unreadMessagesCount: Int = 0  // Demo only - will be real count later
+
+    // MARK: - Tab Selection
+    enum ConversationTab {
+        case review
+        case messages
+    }
 
     // MARK: - Message Pagination
     @State private var allMessages: [Message] = []  // Store full message list
@@ -46,23 +56,187 @@ struct ConversationDetailView: View {
     
     var body: some View {
         VStack(spacing: 0) {
+            // Patient info card (always visible)
+            if let detail = conversationDetail {
+                NavigationLink(
+                    value: PatientProfileDestination(
+                        childId: UUID(uuidString: detail.conversationId),
+                        childName: detail.childName,
+                        childAge: detail.childAge
+                    )
+                ) {
+                    PatientInfoCard(detail: detail)
+                }
+                .buttonStyle(PlainButtonStyle())
+                .padding()
+            }
+
+            // Tab selector
+            HStack(spacing: 0) {
+                TabSelectorButton(
+                    title: "Review",
+                    isSelected: selectedTab == .review,
+                    badge: nil
+                ) {
+                    selectedTab = .review
+                }
+
+                TabSelectorButton(
+                    title: "Messages",
+                    isSelected: selectedTab == .messages,
+                    badge: unreadMessagesCount > 0 ? "\(unreadMessagesCount)" : nil
+                ) {
+                    selectedTab = .messages
+                    unreadMessagesCount = 0  // Mark as read when opening
+                }
+            }
+            .padding(.horizontal)
+            .background(Color.adaptiveBackground(for: colorScheme))
+
+            Divider()
+
+            // Tab content
+            if selectedTab == .review {
+                reviewTabContent
+            } else {
+                messagesTabContent
+            }
+        }
+        .background(Color.adaptiveBackground(for: colorScheme))
+        .navigationTitle(conversationDetail?.conversationTitle ?? "Conversation")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                // Actions menu, flag button, and follow-up indicator
+                HStack(spacing: 12) {
+                    if let detail = conversationDetail {
+                        // iOS share button
+                        Button(action: { shareAllContent() }) {
+                            Image(systemName: "square.and.arrow.up")
+                                .foregroundColor(.primaryCoral)
+                        }
+                        .accessibilityLabel("Share conversation")
+
+                        // Show clock icon if follow-up is scheduled - tappable to cancel
+                        if detail.scheduleFollowup == true {
+                            cancelFollowUpButton
+                        }
+
+                        Button(action: {
+                            if detail.isFlagged == true {
+                                // Unflag
+                                Task {
+                                    await unflagConversation()
+                                }
+                            } else {
+                                // Flag
+                                showingFlagModal = true
+                            }
+                        }) {
+                            Image(systemName: detail.isFlagged == true ? "flag.fill" : "flag")
+                                .foregroundColor(.orange)
+                        }
+                        .accessibilityLabel(detail.isFlagged == true ? "Unflag conversation" : "Flag conversation")
+                    } else {
+                        // Show loading state or placeholder
+                        Image(systemName: "flag")
+                            .foregroundColor(.gray)
+                            .opacity(0.5)
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showingMessageInput) {
+            ProviderMessageInputView(conversationId: conversationId)
+                .environmentObject(store)
+        }
+        .sheet(isPresented: $showingFlagModal) {
+            NavigationStack {
+                VStack(spacing: 20) {
+                    Text("Flag Conversation")
+                        .font(.rethinkSansBold(22, relativeTo: .title2))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Reason (optional)")
+                            .font(.rethinkSansBold(15, relativeTo: .subheadline))
+
+                        TextEditor(text: $flagReason)
+                            .font(.rethinkSans(15, relativeTo: .body))
+                            .frame(minHeight: 80, maxHeight: 150)
+                            .padding(8)
+                            .border(Color.adaptiveSecondaryBackground(for: colorScheme))
+                            .cornerRadius(8)
+                    }
+                    .padding(.horizontal)
+
+                    Text("Character limit: \(flagReason.count)/500")
+                        .font(.rethinkSans(12, relativeTo: .caption))
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .padding(.horizontal)
+
+                    Spacer()
+
+                    Button(action: flagConversation) {
+                        if isFlagging {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        } else {
+                            Text("Flag Conversation")
+                                .font(.rethinkSansBold(17, relativeTo: .body))
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .foregroundColor(.white)
+                    .background(Color.primaryCoral)
+                    .cornerRadius(12)
+                    .disabled(isFlagging || flagReason.count > 500)
+                    .padding()
+                }
+                .background(Color.adaptiveBackground(for: colorScheme))
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button("Cancel") {
+                            showingFlagModal = false
+                            flagReason = ""
+                        }
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showingShareSheet) {
+            ShareSheet(activityItems: [shareContent])
+        }
+        .onAppear {
+            // Prepopulate reply with default "Agree" message since it's the default selection
+            replyText = selectedResponse.defaultMessage
+            Task {
+                await loadConversationData()
+            }
+        }
+        .onChange(of: conversationId) { oldId, newId in
+            // When navigating to a NEW conversation, reset selectedResponse
+            if oldId != newId {
+                selectedResponse = .agree
+                replyText = selectedResponse.defaultMessage
+                os_log("[ConversationDetailView] Navigated to new conversation - reset selectedResponse to .agree", log: .default, type: .debug)
+            }
+            Task {
+                await loadConversationData()
+            }
+        }
+    }
+
+    // MARK: - Review Tab Content
+
+    private var reviewTabContent: some View {
+        VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    // Patient info card
-                    if let detail = conversationDetail {
-                        NavigationLink(
-                            value: PatientProfileDestination(
-                                childId: UUID(uuidString: detail.conversationId),
-                                childName: detail.childName,
-                                childAge: detail.childAge
-                            )
-                        ) {
-                            PatientInfoCard(detail: detail)
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        .padding(.horizontal)
-                    }
-                    
                     // Messages
                     if isLoading {
                         ProgressView()
@@ -186,161 +360,17 @@ struct ConversationDetailView: View {
                 )
             }
         }
-        .navigationTitle(conversationDetail?.conversationTitle ?? "Conversation")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                // Flag button and follow-up indicator
-                HStack(spacing: 12) {
-                    if let detail = conversationDetail {
-                        // Show clock icon if follow-up is scheduled - tappable to cancel
-                        if detail.scheduleFollowup == true {
-                            cancelFollowUpButton
-                        }
-
-                        Button(action: {
-                            if detail.isFlagged == true {
-                                // Unflag
-                                Task {
-                                    await unflagConversation()
-                                }
-                            } else {
-                                // Flag
-                                showingFlagModal = true
-                            }
-                        }) {
-                            Image(systemName: detail.isFlagged == true ? "flag.fill" : "flag")
-                                .foregroundColor(.orange)
-                        }
-                        .accessibilityLabel(detail.isFlagged == true ? "Unflag conversation" : "Flag conversation")
-                    } else {
-                        // Show loading state or placeholder
-                        Image(systemName: "flag")
-                            .foregroundColor(.gray)
-                            .opacity(0.5)
-                    }
-                }
-            }
-        }
-        .sheet(isPresented: $showingMessageInput) {
-            ProviderMessageInputView(conversationId: conversationId)
-                .environmentObject(store)
-        }
-        .sheet(isPresented: $showingFlagModal) {
-            NavigationStack {
-                VStack(spacing: 20) {
-                    Text("Flag Conversation")
-                        .font(.rethinkSansBold(22, relativeTo: .title2))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding()
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Reason (optional)")
-                            .font(.rethinkSansBold(15, relativeTo: .subheadline))
-
-                        TextEditor(text: $flagReason)
-                            .font(.rethinkSans(15, relativeTo: .body))
-                            .frame(minHeight: 80, maxHeight: 150)
-                            .padding(8)
-                            .border(Color.adaptiveSecondaryBackground(for: colorScheme))
-                            .cornerRadius(8)
-                    }
-                    .padding(.horizontal)
-
-                    Text("Character limit: \(flagReason.count)/500")
-                        .font(.rethinkSans(12, relativeTo: .caption))
-                        .foregroundColor(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                        .padding(.horizontal)
-
-                    Spacer()
-
-                    Button(action: flagConversation) {
-                        if isFlagging {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                        } else {
-                            Text("Flag Conversation")
-                                .font(.rethinkSansBold(17, relativeTo: .body))
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .foregroundColor(.white)
-                    .background(Color.primaryCoral)
-                    .cornerRadius(12)
-                    .disabled(isFlagging || flagReason.count > 500)
-                    .padding()
-                }
-                .background(Color.adaptiveBackground(for: colorScheme))
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        Button("Cancel") {
-                            showingFlagModal = false
-                            flagReason = ""
-                        }
-                    }
-                }
-            }
-        }
-        .onAppear {
-            // Prepopulate reply with default "Agree" message since it's the default selection
-            replyText = selectedResponse.defaultMessage
-            Task {
-                await loadConversationData()
-            }
-        }
-        .onChange(of: conversationId) { oldId, newId in
-            // When navigating to a NEW conversation, reset selectedResponse
-            if oldId != newId {
-                selectedResponse = .agree
-                replyText = selectedResponse.defaultMessage
-                os_log("[ConversationDetailView] Navigated to new conversation - reset selectedResponse to .agree", log: .default, type: .debug)
-            }
-        }
-        .onChange(of: conversationDetail?.status) { oldStatus, newStatus in
-            // When status changes to "pending", reset selectedResponse
-            // This happens when user dismisses/removes a response and can respond again
-            // DON'T reset when going from "flagged" to "responded" (unflagging preserves response)
-            if newStatus?.lowercased() == "pending" && oldStatus?.lowercased() != "flagged" {
-                selectedResponse = .agree
-                replyText = selectedResponse.defaultMessage
-                os_log("[ConversationDetailView] Status changed to pending - reset selectedResponse to .agree", log: .default, type: .debug)
-            }
-        }
-        .onChange(of: showingFlagModal) { _, isShowing in
-            // When flag modal is opened, populate existing flag reason if available
-            if isShowing, let detail = conversationDetail, let reason = detail.flagReason {
-                flagReason = reason
-            } else if !isShowing {
-                // Clear flag reason when closing modal
-                flagReason = ""
-            }
-        }
-        .refreshable {
-            await loadConversationData()
-        }
-        .alert("Error", isPresented: .init(
-            get: { errorMessage != nil },
-            set: { if !$0 { errorMessage = nil } }
-        )) {
-            Button("OK") {
-                errorMessage = nil
-            }
-            Button("Retry") {
-                errorMessage = nil
-                Task {
-                    await loadConversationData()
-                }
-            }
-        } message: {
-            if let error = errorMessage {
-                Text(error)
-            }
-        }
     }
-    
+
+    // MARK: - Messages Tab Content
+
+    private var messagesTabContent: some View {
+        MessagingDemoView(
+            conversationId: conversationId,
+            patientName: conversationDetail?.childName
+        )
+    }
+
     private func loadConversationData() async {
         os_log("[ConversationDetailView] Loading conversation data", log: .default, type: .debug)
 
@@ -646,6 +676,54 @@ struct ConversationDetailView: View {
                 HapticFeedback.error()
             }
         }
+    }
+
+    // MARK: - Share Methods
+
+    private func shareAllContent() {
+        guard let detail = conversationDetail else { return }
+
+        var content = ""
+
+        // Section 1: Summary
+        content += "═══════════════════════════════\n"
+        content += "CONVERSATION SUMMARY\n"
+        content += "═══════════════════════════════\n\n"
+        content += "Patient: \(detail.childName ?? "Unknown")\n"
+        if let age = detail.childAge {
+            content += "Age: \(age)\n"
+        }
+        content += "Status: \(detail.status?.capitalized ?? "Unknown")\n"
+        if let triage = detail.triageOutcome {
+            content += "Triage: \(triage)\n"
+        }
+        content += "Total Messages: \(allMessages.count)\n"
+        if let createdAt = detail.createdAt {
+            content += "Created: \(createdAt)\n"
+        }
+        content += "\n"
+
+        // Section 2: Full Conversation
+        content += "═══════════════════════════════\n"
+        content += "FULL CONVERSATION\n"
+        content += "═══════════════════════════════\n\n"
+
+        for message in allMessages {
+            let sender = message.isFromUser ? "Parent" : "Clara"
+            content += "[\(sender)]: \(message.content)\n\n"
+        }
+
+        // Section 3: Provider Response
+        if let response = detail.providerResponse, !response.isEmpty {
+            content += "═══════════════════════════════\n"
+            content += "PROVIDER RESPONSE\n"
+            content += "═══════════════════════════════\n\n"
+            content += response
+            content += "\n"
+        }
+
+        shareContent = content
+        showingShareSheet = true
     }
 
     /// Reopen a completed response to allow editing
@@ -1220,3 +1298,63 @@ struct ReviewResultView: View {
     }
 }
 
+
+// MARK: - ShareSheet Helper
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let activityItems: [Any]
+    let applicationActivities: [UIActivity]? = nil
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(
+            activityItems: activityItems,
+            applicationActivities: applicationActivities
+        )
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
+// MARK: - Tab Selector Button
+
+struct TabSelectorButton: View {
+    let title: String
+    let isSelected: Bool
+    let badge: String?
+    let action: () -> Void
+    @Environment(\.colorScheme) var colorScheme
+
+    var body: some View {
+        Button(action: {
+            HapticFeedback.light()
+            action()
+        }) {
+            HStack(spacing: 4) {
+                Text(title)
+                    .font(isSelected ? .rethinkSansBold(15, relativeTo: .subheadline) : .rethinkSans(15, relativeTo: .subheadline))
+                
+                if let badge = badge {
+                    Text(badge)
+                        .font(.rethinkSansBold(12, relativeTo: .caption2))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.primaryCoral)
+                        .cornerRadius(10)
+                }
+            }
+            .foregroundColor(isSelected ? Color.primaryCoral : Color.adaptiveLabel(for: colorScheme))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(
+                VStack(spacing: 0) {
+                    Spacer()
+                    Rectangle()
+                        .fill(isSelected ? Color.primaryCoral : Color.clear)
+                        .frame(height: 3)
+                }
+            )
+        }
+    }
+}
