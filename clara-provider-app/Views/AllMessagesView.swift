@@ -8,20 +8,85 @@ struct AllMessagesView: View {
     @State private var isLoading = false
     @State private var errorMessage: String? = nil
     @State private var searchText: String = ""
+    @State private var selectedFilter: MessageFilter = .unread
+    @State private var unreadConversationIds: Set<String> = []  // Track which conversations are unread
+    @State private var notificationObserver: NSObjectProtocol?
+
+    enum MessageFilter {
+        case unread, flagged, all
+    }
 
     var filteredConversations: [MessageConversationSummary] {
-        if searchText.isEmpty {
-            return conversations
-        } else {
-            return conversations.filter { conversation in
+        var filtered = conversations
+
+        // Apply filter
+        switch selectedFilter {
+        case .unread:
+            filtered = filtered.filter { unreadConversationIds.contains($0.conversationId) }
+        case .flagged:
+            // TODO: Add flagged logic once we have flagging in messages
+            break
+        case .all:
+            break
+        }
+
+        // Apply search
+        if !searchText.isEmpty {
+            filtered = filtered.filter { conversation in
                 conversation.conversationId.localizedCaseInsensitiveContains(searchText) ||
                 (conversation.latestMessagePreview?.localizedCaseInsensitiveContains(searchText) ?? false)
             }
         }
+
+        return filtered
+    }
+
+    var unreadCount: Int {
+        unreadConversationIds.count
+    }
+
+    var flaggedCount: Int {
+        // TODO: Implement flagged count
+        0
     }
 
     var body: some View {
         VStack(spacing: 0) {
+            // Filter buttons
+            HStack(spacing: 12) {
+                SubFilterButton(
+                    title: "Unread",
+                    count: unreadCount,
+                    isSelected: selectedFilter == .unread
+                ) {
+                    selectedFilter = .unread
+                }
+                .frame(maxWidth: .infinity)
+
+                SubFilterButton(
+                    title: "Flagged",
+                    count: flaggedCount,
+                    isSelected: selectedFilter == .flagged
+                ) {
+                    selectedFilter = .flagged
+                }
+                .frame(maxWidth: .infinity)
+
+                SubFilterButton(
+                    title: "All",
+                    count: conversations.count,
+                    isSelected: selectedFilter == .all
+                ) {
+                    selectedFilter = .all
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(Color.adaptiveBackground(for: colorScheme))
+
+            Divider()
+
             if isLoading && conversations.isEmpty {
                 ProgressView("Loading conversations...")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -37,7 +102,10 @@ struct AllMessagesView: View {
                     ForEach(filteredConversations, id: \.id) { conversation in
                         if let validUUID = UUID(uuidString: conversation.conversationId) {
                             NavigationLink(destination: MessageDetailView(conversationId: validUUID).environmentObject(store)) {
-                                MessageConversationRow(conversation: conversation)
+                                MessageConversationRow(
+                                    conversation: conversation,
+                                    isUnread: unreadConversationIds.contains(conversation.conversationId)
+                                )
                             }
                             .listRowBackground(Color.adaptiveBackground(for: colorScheme))
                         } else {
@@ -75,6 +143,28 @@ struct AllMessagesView: View {
                     await loadConversations()
                 }
             }
+
+            // Listen for mark-as-read notifications
+            if let existingObserver = notificationObserver {
+                NotificationCenter.default.removeObserver(existingObserver)
+            }
+
+            notificationObserver = NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("MarkMessageConversationAsRead"),
+                object: nil,
+                queue: .main
+            ) { notification in
+                if let conversationId = notification.userInfo?["conversationId"] as? String {
+                    markConversationAsRead(conversationId: conversationId)
+                }
+            }
+        }
+        .onDisappear {
+            // Clean up notification observer
+            if let observer = notificationObserver {
+                NotificationCenter.default.removeObserver(observer)
+                notificationObserver = nil
+            }
         }
         .alert("Error", isPresented: .init(
             get: { errorMessage != nil },
@@ -105,8 +195,23 @@ struct AllMessagesView: View {
 
             await MainActor.run {
                 conversations = results
+
+                // Load unread status from UserDefaults
+                loadUnreadStatus()
+
+                // Initialize any new conversations as unread if not already tracked
+                for conversation in results {
+                    if !hasBeenTracked(conversationId: conversation.conversationId) {
+                        unreadConversationIds.insert(conversation.conversationId)
+                        markAsTracked(conversationId: conversation.conversationId)
+                    }
+                }
+
+                // Save updated unread status
+                saveUnreadStatus()
+
                 isLoading = false
-                os_log("[AllMessagesView] Loaded %d conversations", log: .default, type: .info, results.count)
+                os_log("[AllMessagesView] Loaded %d conversations, %d unread", log: .default, type: .info, results.count, unreadConversationIds.count)
             }
         } catch {
             await MainActor.run {
@@ -116,15 +221,59 @@ struct AllMessagesView: View {
             }
         }
     }
+
+    // MARK: - Unread Status Persistence
+
+    private func loadUnreadStatus() {
+        if let data = UserDefaults.standard.data(forKey: "unreadMessageConversations"),
+           let decoded = try? JSONDecoder().decode(Set<String>.self, from: data) {
+            unreadConversationIds = decoded
+        }
+    }
+
+    private func saveUnreadStatus() {
+        if let encoded = try? JSONEncoder().encode(unreadConversationIds) {
+            UserDefaults.standard.set(encoded, forKey: "unreadMessageConversations")
+            // Notify that unread count changed so UI can update
+            NotificationCenter.default.post(
+                name: NSNotification.Name("UnreadMessageCountChanged"),
+                object: nil
+            )
+        }
+    }
+
+    private func hasBeenTracked(conversationId: String) -> Bool {
+        let trackedKey = "tracked_conversation_\(conversationId)"
+        return UserDefaults.standard.bool(forKey: trackedKey)
+    }
+
+    private func markAsTracked(conversationId: String) {
+        let trackedKey = "tracked_conversation_\(conversationId)"
+        UserDefaults.standard.set(true, forKey: trackedKey)
+    }
+
+    private func markConversationAsRead(conversationId: String) {
+        unreadConversationIds.remove(conversationId)
+        saveUnreadStatus()
+        os_log("[AllMessagesView] Marked conversation as read: %{public}s", log: .default, type: .info, conversationId)
+    }
 }
 
 struct MessageConversationRow: View {
     let conversation: MessageConversationSummary
+    let isUnread: Bool
     @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
+                // Unread indicator (blue dot)
+                if isUnread {
+                    Circle()
+                        .fill(Color.blue)
+                        .frame(width: 8, height: 8)
+                }
+
                 Text("Conversation")
                     .font(.rethinkSansBold(17, relativeTo: .headline))
                     .lineLimit(1)

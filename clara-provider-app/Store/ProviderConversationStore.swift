@@ -773,4 +773,27 @@ class ProviderConversationStore: ObservableObject {
             return Calendar.current.isDate(respondedDate, inSameDayAs: today)
         }.count
     }
+
+    // MARK: - Message Read Status (for AllMessagesView)
+
+    /// Get unread message conversations count (from UserDefaults)
+    var unreadMessageConversationsCount: Int {
+        if let data = UserDefaults.standard.data(forKey: "unreadMessageConversations"),
+           let decoded = try? JSONDecoder().decode(Set<String>.self, from: data) {
+            return decoded.count
+        }
+        return 0
+    }
+
+    /// Mark a message conversation as read (client-side tracking only)
+    /// This posts a notification that AllMessagesView can listen for
+    func markMessageConversationAsRead(conversationId: String) {
+        NotificationCenter.default.post(
+            name: NSNotification.Name("MarkMessageConversationAsRead"),
+            object: nil,
+            userInfo: ["conversationId": conversationId]
+        )
+        os_log("[ProviderConversationStore] Posted notification to mark message conversation as read: %{public}s",
+               log: .default, type: .info, conversationId)
+    }
 }

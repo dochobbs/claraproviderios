@@ -2,16 +2,29 @@ import SwiftUI
 
 struct ConversationListView: View {
     @EnvironmentObject var store: ProviderConversationStore
-    @State private var selectedReviewFilter: ReviewFilter = .pending  // Sub-filter for reviews
     @State private var searchText: String = ""
     @Environment(\.colorScheme) var colorScheme
     @State private var notificationObserver: NSObjectProtocol?
+    @State private var unreadCountObserver: NSObjectProtocol?  // Observer for unread message count changes
     @State private var showScheduleFollowUp: Bool = false
     @State private var selectedRequestForFollowUp: ProviderReviewRequestDetail?
-    @State private var navigateToAllMessages = false  // Navigation trigger for All Messages
+    @State private var selectedMainSection: MainSection = .reviews  // Which main section is active
+    @State private var selectedReviewFilter: ReviewFilter = .pending  // Sub-filter for reviews
+    @State private var selectedMessageFilter: MessageFilter = .unread  // Sub-filter for messages
+    @State private var messageConversations: [MessageConversationSummary] = []
+    @State private var unreadConversationIds: Set<String> = []
+    @State private var isLoadingMessages = false
+
+    enum MainSection {
+        case reviews, messages
+    }
 
     enum ReviewFilter {
         case pending, flagged, all
+    }
+
+    enum MessageFilter {
+        case unread, flagged, all
     }
 
     var filteredRequests: [ProviderReviewRequestDetail] {
@@ -39,43 +52,94 @@ struct ConversationListView: View {
         return requests
     }
 
+    var filteredMessages: [MessageConversationSummary] {
+        var filtered = messageConversations
+
+        // Apply message filter
+        switch selectedMessageFilter {
+        case .unread:
+            filtered = filtered.filter { unreadConversationIds.contains($0.conversationId) }
+        case .flagged:
+            // TODO: Add flagged logic once we have flagging in messages
+            break
+        case .all:
+            break
+        }
+
+        // Apply search
+        if !searchText.isEmpty {
+            filtered = filtered.filter { conversation in
+                conversation.conversationId.localizedCaseInsensitiveContains(searchText) ||
+                (conversation.latestMessagePreview?.localizedCaseInsensitiveContains(searchText) ?? false)
+            }
+        }
+
+        return filtered
+    }
+
+    var unreadMessageCount: Int {
+        unreadConversationIds.count
+    }
+
+    var flaggedMessageCount: Int {
+        // TODO: Implement flagged count
+        0
+    }
+
     var hasPendingReviews: Bool {
         store.pendingCount > 0 || store.flaggedCount > 0
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            // Main buttons: Reviews and All Messages
+            // Main buttons: Reviews and Messages
             HStack(spacing: 12) {
-                // Reviews section (selected/current view)
-                HStack(spacing: 6) {
-                    Text("Reviews")
-                        .font(.rethinkSansBold(17, relativeTo: .headline))
-                    Text("(\(store.pendingCount))")
-                        .font(.system(size: 15, weight: .semibold, design: .monospaced))
-                }
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(Color.primaryCoral)
-                .cornerRadius(10)
-
-                // All Messages button - navigates to AllMessagesView
-                NavigationLink(destination: AllMessagesView().environmentObject(store)) {
+                // Reviews button
+                Button(action: {
+                    selectedMainSection = .reviews
+                }) {
                     HStack(spacing: 6) {
-                        Text("All Messages")
+                        Text("Reviews")
                             .font(.rethinkSansBold(17, relativeTo: .headline))
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
+                        Text("(\(store.pendingCount))")
+                            .font(.system(size: 15, weight: .semibold, design: .monospaced))
                     }
-                    .foregroundColor(Color.adaptiveLabel(for: colorScheme))
+                    .foregroundColor(selectedMainSection == .reviews ? .white : Color.adaptiveLabel(for: colorScheme))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(Color.clear)
+                    .background(selectedMainSection == .reviews ? Color.primaryCoral : Color.clear)
                     .cornerRadius(10)
                     .overlay(
                         RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color.adaptiveSecondaryLabel(for: colorScheme).opacity(0.3), lineWidth: 1)
+                            .stroke(selectedMainSection == .reviews ? Color.clear : Color.adaptiveSecondaryLabel(for: colorScheme).opacity(0.3), lineWidth: 1)
+                    )
+                }
+
+                // Messages button
+                Button(action: {
+                    selectedMainSection = .messages
+                    if messageConversations.isEmpty {
+                        Task {
+                            await loadMessages()
+                        }
+                    }
+                }) {
+                    HStack(spacing: 6) {
+                        Text("Messages")
+                            .font(.rethinkSansBold(17, relativeTo: .headline))
+                        if unreadMessageCount > 0 {
+                            Text("(\(unreadMessageCount))")
+                                .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                        }
+                    }
+                    .foregroundColor(selectedMainSection == .messages ? .white : Color.adaptiveLabel(for: colorScheme))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(selectedMainSection == .messages ? Color.primaryCoral : Color.clear)
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(selectedMainSection == .messages ? Color.clear : Color.adaptiveSecondaryLabel(for: colorScheme).opacity(0.3), lineWidth: 1)
                     )
                 }
             }
@@ -83,53 +147,90 @@ struct ConversationListView: View {
             .padding(.vertical, 12)
             .background(Color.adaptiveBackground(for: colorScheme))
 
-            // Sub-filter buttons for Reviews
-            HStack(spacing: 12) {
-                SubFilterButton(
-                    title: "Pending",
-                    count: store.pendingCount,
-                    isSelected: selectedReviewFilter == .pending
-                ) {
-                    selectedReviewFilter = .pending
-                }
-                .frame(maxWidth: .infinity)
+            // Sub-filter buttons - show different filters based on selected main section
+            if selectedMainSection == .reviews {
+                HStack(spacing: 12) {
+                    SubFilterButton(
+                        title: "Pending",
+                        count: store.pendingCount,
+                        isSelected: selectedReviewFilter == .pending
+                    ) {
+                        selectedReviewFilter = .pending
+                    }
+                    .frame(maxWidth: .infinity)
 
-                SubFilterButton(
-                    title: "Flagged",
-                    count: store.flaggedCount,
-                    isSelected: selectedReviewFilter == .flagged
-                ) {
-                    selectedReviewFilter = .flagged
-                }
-                .frame(maxWidth: .infinity)
+                    SubFilterButton(
+                        title: "Flagged",
+                        count: store.flaggedCount,
+                        isSelected: selectedReviewFilter == .flagged
+                    ) {
+                        selectedReviewFilter = .flagged
+                    }
+                    .frame(maxWidth: .infinity)
 
-                SubFilterButton(
-                    title: "All",
-                    count: store.reviewRequests.count,
-                    isSelected: selectedReviewFilter == .all
-                ) {
-                    selectedReviewFilter = .all
+                    SubFilterButton(
+                        title: "All",
+                        count: store.reviewRequests.count,
+                        isSelected: selectedReviewFilter == .all
+                    ) {
+                        selectedReviewFilter = .all
+                    }
+                    .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 6)
-            .background(Color.adaptiveBackground(for: colorScheme))
-
-            Divider()
-            
-            // List of conversations
-            if store.isLoading && store.reviewRequests.isEmpty {
-                ProgressView("Loading reviews...")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.adaptiveBackground(for: colorScheme))
-            } else if filteredRequests.isEmpty {
-                EmptyStateView(
-                    title: searchText.isEmpty ? "No Reviews" : "No Results",
-                    message: searchText.isEmpty ? "No review requests match your filters." : "Try adjusting your search."
-                )
+                .padding(.horizontal, 16)
+                .padding(.vertical, 6)
                 .background(Color.adaptiveBackground(for: colorScheme))
             } else {
+                // Messages sub-filters
+                HStack(spacing: 12) {
+                    SubFilterButton(
+                        title: "Unread",
+                        count: unreadMessageCount,
+                        isSelected: selectedMessageFilter == .unread
+                    ) {
+                        selectedMessageFilter = .unread
+                    }
+                    .frame(maxWidth: .infinity)
+
+                    SubFilterButton(
+                        title: "Flagged",
+                        count: flaggedMessageCount,
+                        isSelected: selectedMessageFilter == .flagged
+                    ) {
+                        selectedMessageFilter = .flagged
+                    }
+                    .frame(maxWidth: .infinity)
+
+                    SubFilterButton(
+                        title: "All",
+                        count: messageConversations.count,
+                        isSelected: selectedMessageFilter == .all
+                    ) {
+                        selectedMessageFilter = .all
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 6)
+                .background(Color.adaptiveBackground(for: colorScheme))
+            }
+
+            Divider()
+
+            // List of conversations - different lists based on selected section
+            if selectedMainSection == .reviews {
+                // Reviews list
+                if store.isLoading && store.reviewRequests.isEmpty {
+                    ProgressView("Loading reviews...")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color.adaptiveBackground(for: colorScheme))
+                } else if filteredRequests.isEmpty {
+                    EmptyStateView(
+                        title: searchText.isEmpty ? "No Reviews" : "No Results",
+                        message: searchText.isEmpty ? "No review requests match your filters." : "Try adjusting your search."
+                    )
+                    .background(Color.adaptiveBackground(for: colorScheme))
+                } else {
                 List {
                     ForEach(filteredRequests, id: \.id) { request in
                         // CRITICAL FIX: Validate UUID format before navigation
@@ -166,10 +267,58 @@ struct ConversationListView: View {
                         }
                     }
                 }
-                .scrollContentBackground(.hidden)
-                .background(Color.adaptiveBackground(for: colorScheme))
-                .refreshable {
-                    await store.refresh()
+                    .scrollContentBackground(.hidden)
+                    .background(Color.adaptiveBackground(for: colorScheme))
+                    .refreshable {
+                        await store.refresh()
+                    }
+                }
+            } else {
+                // Messages list
+                if isLoadingMessages && messageConversations.isEmpty {
+                    ProgressView("Loading messages...")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color.adaptiveBackground(for: colorScheme))
+                } else if filteredMessages.isEmpty {
+                    EmptyStateView(
+                        title: searchText.isEmpty ? "No Messages" : "No Results",
+                        message: searchText.isEmpty ? "No conversations found in the messages table." : "Try adjusting your search."
+                    )
+                    .background(Color.adaptiveBackground(for: colorScheme))
+                } else {
+                    List {
+                        ForEach(filteredMessages, id: \.id) { conversation in
+                            if let validUUID = UUID(uuidString: conversation.conversationId) {
+                                NavigationLink(destination: MessageDetailView(conversationId: validUUID).environmentObject(store)) {
+                                    MessageConversationRowView(
+                                        conversation: conversation,
+                                        isUnread: unreadConversationIds.contains(conversation.conversationId)
+                                    )
+                                }
+                                .listRowBackground(Color.adaptiveBackground(for: colorScheme))
+                            } else {
+                                // Invalid conversation ID
+                                HStack {
+                                    Image(systemName: "exclamationmark.triangle.fill")
+                                        .foregroundColor(.red)
+                                    VStack(alignment: .leading) {
+                                        Text("Invalid Conversation")
+                                            .font(.rethinkSansBold(16, relativeTo: .body))
+                                        Text("Conversation ID format is invalid")
+                                            .font(.rethinkSans(13, relativeTo: .footnote))
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Spacer()
+                                }
+                                .listRowBackground(Color.red.opacity(0.1))
+                            }
+                        }
+                    }
+                    .scrollContentBackground(.hidden)
+                    .background(Color.adaptiveBackground(for: colorScheme))
+                    .refreshable {
+                        await loadMessages()
+                    }
                 }
             }
         }
@@ -232,6 +381,9 @@ struct ConversationListView: View {
                 }
             }
 
+            // Load initial unread message count
+            loadUnreadStatus()
+
             // CRITICAL FIX: Properly manage NotificationCenter observer lifecycle
             // Bug: Observer was added in onAppear but never removed
             // Result: Multiple observers accumulated after each navigation cycle, causing
@@ -253,6 +405,19 @@ struct ConversationListView: View {
                     store.selectedConversationId = conversationId
                 }
             }
+
+            // Listen for unread message count changes
+            if let existingUnreadObserver = unreadCountObserver {
+                NotificationCenter.default.removeObserver(existingUnreadObserver)
+            }
+
+            unreadCountObserver = NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("UnreadMessageCountChanged"),
+                object: nil,
+                queue: .main
+            ) { _ in
+                loadUnreadStatus()
+            }
         }
         .onDisappear {
             // Remove observer when view disappears to prevent memory leak
@@ -260,7 +425,90 @@ struct ConversationListView: View {
                 NotificationCenter.default.removeObserver(observer)
                 notificationObserver = nil
             }
+
+            // Remove unread count observer
+            if let observer = unreadCountObserver {
+                NotificationCenter.default.removeObserver(observer)
+                unreadCountObserver = nil
+            }
+
+            // Listen for mark-as-read notifications
+            NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("MarkMessageConversationAsRead"),
+                object: nil,
+                queue: .main
+            ) { notification in
+                if let conversationId = notification.userInfo?["conversationId"] as? String {
+                    markConversationAsRead(conversationId: conversationId)
+                }
+            }
         }
+    }
+
+    // MARK: - Helper Functions
+
+    func loadMessages() async {
+        await MainActor.run { isLoadingMessages = true }
+
+        do {
+            let results = try await ProviderSupabaseService.shared.fetchAllConversationsFromMessages()
+
+            await MainActor.run {
+                messageConversations = results
+
+                // Load unread status from UserDefaults
+                loadUnreadStatus()
+
+                // Initialize any new conversations as unread if not already tracked
+                for conversation in results {
+                    if !hasBeenTracked(conversationId: conversation.conversationId) {
+                        unreadConversationIds.insert(conversation.conversationId)
+                        markAsTracked(conversationId: conversation.conversationId)
+                    }
+                }
+
+                // Save updated unread status
+                saveUnreadStatus()
+
+                isLoadingMessages = false
+            }
+        } catch {
+            await MainActor.run {
+                isLoadingMessages = false
+            }
+        }
+    }
+
+    func loadUnreadStatus() {
+        if let data = UserDefaults.standard.data(forKey: "unreadMessageConversations"),
+           let decoded = try? JSONDecoder().decode(Set<String>.self, from: data) {
+            unreadConversationIds = decoded
+        }
+    }
+
+    func saveUnreadStatus() {
+        if let encoded = try? JSONEncoder().encode(unreadConversationIds) {
+            UserDefaults.standard.set(encoded, forKey: "unreadMessageConversations")
+            NotificationCenter.default.post(
+                name: NSNotification.Name("UnreadMessageCountChanged"),
+                object: nil
+            )
+        }
+    }
+
+    func hasBeenTracked(conversationId: String) -> Bool {
+        let trackedKey = "tracked_conversation_\(conversationId)"
+        return UserDefaults.standard.bool(forKey: trackedKey)
+    }
+
+    func markAsTracked(conversationId: String) {
+        let trackedKey = "tracked_conversation_\(conversationId)"
+        UserDefaults.standard.set(true, forKey: trackedKey)
+    }
+
+    func markConversationAsRead(conversationId: String) {
+        unreadConversationIds.remove(conversationId)
+        saveUnreadStatus()
     }
 }
 
@@ -600,5 +848,82 @@ struct EmptyStateView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()
         .background(Color.adaptiveBackground(for: colorScheme))
+    }
+}
+
+// MARK: - Message Conversation Row View
+struct MessageConversationRowView: View {
+    let conversation: MessageConversationSummary
+    let isUnread: Bool
+    @Environment(\.colorScheme) var colorScheme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                // Unread indicator (blue dot)
+                if isUnread {
+                    Circle()
+                        .fill(Color.blue)
+                        .frame(width: 8, height: 8)
+                }
+
+                Text("Conversation")
+                    .font(.rethinkSansBold(17, relativeTo: .headline))
+                    .lineLimit(1)
+
+                Spacer()
+
+                if let timestamp = conversation.latestTimestamp {
+                    Text(formatDate(timestamp))
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            if let preview = conversation.latestMessagePreview {
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: conversation.latestIsFromUser ? "person.fill" : "stethoscope")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                        .frame(width: 16)
+
+                    Text(preview)
+                        .font(.rethinkSans(14, relativeTo: .subheadline))
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
+                }
+            }
+
+            Text(conversation.conversationId)
+                .font(.system(.caption2, design: .monospaced))
+                .foregroundColor(.secondary)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func formatDate(_ dateString: String) -> String {
+        let formatter = ISO8601DateFormatter()
+        guard let date = formatter.date(from: dateString) else {
+            return dateString
+        }
+
+        let calendar = Calendar.current
+        let now = Date()
+
+        if calendar.isDateInToday(date) {
+            let timeFormatter = DateFormatter()
+            timeFormatter.timeStyle = .short
+            return timeFormatter.string(from: date)
+        } else if calendar.isDateInYesterday(date) {
+            return "Yesterday"
+        } else if calendar.dateComponents([.day], from: date, to: now).day ?? 0 < 7 {
+            let dayFormatter = DateFormatter()
+            dayFormatter.dateFormat = "EEEE"
+            return dayFormatter.string(from: date)
+        } else {
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateStyle = .short
+            return dateFormatter.string(from: date)
+        }
     }
 }

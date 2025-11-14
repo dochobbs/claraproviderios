@@ -143,6 +143,9 @@ struct MessageDetailView: View {
                 await loadMessages()
                 checkFlagStatus()
             }
+
+            // Mark this conversation as read for AllMessagesView tracking
+            store.markMessageConversationAsRead(conversationId: conversationId.uuidString)
         }
         .alert("Error", isPresented: .init(
             get: { errorMessage != nil },
