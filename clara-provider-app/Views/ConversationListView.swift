@@ -28,7 +28,7 @@ struct ConversationListView: View {
     }
 
     enum ThreadFilter {
-        case unread, flagged, all
+        case unread, notes, all
     }
 
     var filteredRequests: [ProviderReviewRequestDetail] {
@@ -63,9 +63,8 @@ struct ConversationListView: View {
         switch selectedThreadFilter {
         case .unread:
             filtered = filtered.filter { unreadConversationIds.contains($0.conversationId) }
-        case .flagged:
-            // TODO: Add flagged logic once we have flagging in threads
-            break
+        case .notes:
+            filtered = filtered.filter { hasNotes(for: $0.conversationId) }
         case .all:
             break
         }
@@ -87,9 +86,10 @@ struct ConversationListView: View {
         return unreadConversationIds.count
     }
 
-    var flaggedThreadCount: Int {
-        // TODO: Implement flagged count
-        0
+    var notesThreadCount: Int {
+        // Access the trigger to make this reactive
+        _ = notesRefreshTrigger
+        return threadConversations.filter { hasNotes(for: $0.conversationId) }.count
     }
 
     var hasPendingReviews: Bool {
@@ -197,11 +197,11 @@ struct ConversationListView: View {
                     .frame(maxWidth: .infinity)
 
                     SubFilterButton(
-                        title: "Flagged",
-                        count: flaggedThreadCount,
-                        isSelected: selectedThreadFilter == .flagged
+                        title: "Notes",
+                        count: notesThreadCount,
+                        isSelected: selectedThreadFilter == .notes
                     ) {
-                        selectedThreadFilter = .flagged
+                        selectedThreadFilter = .notes
                     }
                     .frame(maxWidth: .infinity)
 
