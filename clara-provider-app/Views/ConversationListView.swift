@@ -6,6 +6,7 @@ struct ConversationListView: View {
     @Environment(\.colorScheme) var colorScheme
     @State private var notificationObserver: NSObjectProtocol?
     @State private var unreadCountObserver: NSObjectProtocol?  // Observer for unread message count changes
+    @State private var markAsReadObserver: NSObjectProtocol?  // Observer for mark-as-read notifications
     @State private var showScheduleFollowUp: Bool = false
     @State private var selectedRequestForFollowUp: ProviderReviewRequestDetail?
     @State private var selectedMainSection: MainSection = .reviews  // Which main section is active
@@ -418,6 +419,21 @@ struct ConversationListView: View {
             ) { _ in
                 loadUnreadStatus()
             }
+
+            // Listen for mark-as-read notifications
+            if let existingMarkAsReadObserver = markAsReadObserver {
+                NotificationCenter.default.removeObserver(existingMarkAsReadObserver)
+            }
+
+            markAsReadObserver = NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("MarkMessageConversationAsRead"),
+                object: nil,
+                queue: .main
+            ) { notification in
+                if let conversationId = notification.userInfo?["conversationId"] as? String {
+                    markConversationAsRead(conversationId: conversationId)
+                }
+            }
         }
         .onDisappear {
             // Remove observer when view disappears to prevent memory leak
@@ -432,15 +448,10 @@ struct ConversationListView: View {
                 unreadCountObserver = nil
             }
 
-            // Listen for mark-as-read notifications
-            NotificationCenter.default.addObserver(
-                forName: NSNotification.Name("MarkMessageConversationAsRead"),
-                object: nil,
-                queue: .main
-            ) { notification in
-                if let conversationId = notification.userInfo?["conversationId"] as? String {
-                    markConversationAsRead(conversationId: conversationId)
-                }
+            // Remove mark-as-read observer
+            if let observer = markAsReadObserver {
+                NotificationCenter.default.removeObserver(observer)
+                markAsReadObserver = nil
             }
         }
     }

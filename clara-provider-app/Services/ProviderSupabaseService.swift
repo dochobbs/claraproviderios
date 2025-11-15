@@ -788,7 +788,9 @@ class ProviderSupabaseService: SupabaseServiceBase {
             os_log("[ProviderSupabaseService] Fetched %d messages from messages table", log: .default, type: .info, jsonArray.count)
 
             // Group by conversation_id and create summaries
+            // Also track which conversations have both user and assistant messages
             var conversationsDict: [String: MessageConversationSummary] = [:]
+            var conversationMessageTypes: [String: (hasUser: Bool, hasAssistant: Bool)] = [:]
 
             for item in jsonArray {
                 guard let conversationIdString = item["conversation_id"] as? String else {
@@ -798,6 +800,15 @@ class ProviderSupabaseService: SupabaseServiceBase {
                 let timestamp = item["timestamp"] as? String
                 let messageContent = item["content"] as? String
                 let isFromUser = item["is_from_user"] as? Bool ?? false
+
+                // Track message types for this conversation
+                var types = conversationMessageTypes[conversationIdString] ?? (hasUser: false, hasAssistant: false)
+                if isFromUser {
+                    types.hasUser = true
+                } else {
+                    types.hasAssistant = true
+                }
+                conversationMessageTypes[conversationIdString] = types
 
                 // If this conversation doesn't exist yet, or if this message is newer, update the summary
                 if conversationsDict[conversationIdString] == nil {
@@ -812,15 +823,23 @@ class ProviderSupabaseService: SupabaseServiceBase {
                 }
             }
 
+            // Filter to only include conversations with BOTH user and assistant messages
+            let completeConversations = conversationsDict.filter { conversationId, _ in
+                if let types = conversationMessageTypes[conversationId] {
+                    return types.hasUser && types.hasAssistant
+                }
+                return false
+            }
+
             // Convert to array and sort by latest timestamp (descending)
-            let summaries = conversationsDict.values.sorted { (a, b) in
+            let summaries = completeConversations.values.sorted { (a, b) in
                 guard let aTime = a.latestTimestamp, let bTime = b.latestTimestamp else {
                     return false
                 }
                 return aTime > bTime
             }
 
-            os_log("[ProviderSupabaseService] Found %d unique conversations from messages", log: .default, type: .info, summaries.count)
+            os_log("[ProviderSupabaseService] Found %d complete conversations (with both user and assistant messages) from %d total unique conversations", log: .default, type: .info, summaries.count, conversationsDict.count)
             return summaries
         } catch {
             os_log("[ProviderSupabaseService] Error fetching messages: %{public}s", log: .default, type: .error, String(describing: error))
