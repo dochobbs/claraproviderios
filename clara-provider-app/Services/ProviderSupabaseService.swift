@@ -759,7 +759,8 @@ class ProviderSupabaseService: SupabaseServiceBase {
         // Query the messages table and select distinct conversation_ids with latest timestamp
         // Note: Supabase doesn't have a GROUP BY with aggregates in REST API,
         // so we fetch all messages and group them client-side
-        let urlString = "\(projectURL)/rest/v1/messages?select=conversation_id,timestamp,content,is_from_user&order=timestamp.desc"
+        // IMPORTANT: Set limit=10000 to fetch all messages (default is 1000)
+        let urlString = "\(projectURL)/rest/v1/messages?select=conversation_id,timestamp,content,is_from_user&order=timestamp.desc&limit=10000"
 
         guard let url = URL(string: urlString) else {
             throw SupabaseError.invalidResponse
