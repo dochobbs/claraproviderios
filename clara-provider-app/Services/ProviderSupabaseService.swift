@@ -868,8 +868,8 @@ class ProviderSupabaseService: SupabaseServiceBase {
                log: .default, type: .info, bothCount, userOnlyCount, assistantOnlyCount, neitherCount, conversationMessageTypes.count)
 
         // Filter to only include conversations with BOTH user and assistant messages
-        let completeConversations = conversationsDict.filter { (conversationId, _) in
-            guard let types = conversationMessageTypes[conversationId] else {
+        let completeConversations = conversationsDict.filter { conversation in
+            guard let types = conversationMessageTypes[conversation.key] else {
                 return false
             }
             return types.hasUser && types.hasAssistant
