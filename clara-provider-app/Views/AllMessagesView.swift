@@ -11,7 +11,9 @@ struct AllMessagesView: View {
     @State private var selectedFilter: MessageFilter = .unread
     @State private var unreadConversationIds: Set<String> = []  // Track which conversations are unread
     @State private var unreadRefreshTrigger = false  // Toggle this to force UI refresh
+    @State private var notesRefreshTrigger = false  // Toggle this to force notes icons to refresh
     @State private var notificationObserver: NSObjectProtocol?
+    @State private var notesChangedObserver: NSObjectProtocol?
 
     enum MessageFilter {
         case unread, flagged, all
@@ -107,7 +109,8 @@ struct AllMessagesView: View {
                             NavigationLink(destination: MessageDetailView(conversationId: validUUID).environmentObject(store)) {
                                 MessageConversationRow(
                                     conversation: conversation,
-                                    isUnread: unreadConversationIds.contains(conversation.conversationId.lowercased())
+                                    isUnread: unreadConversationIds.contains(conversation.conversationId.lowercased()),
+                                    hasNotes: hasNotes(for: conversation.conversationId)
                                 )
                             }
                             .listRowBackground(Color.adaptiveBackground(for: colorScheme))
@@ -182,6 +185,22 @@ struct AllMessagesView: View {
                            log: .default, type: .info, unreadConversationIds.count)
                 }
             }
+
+            // Listen for provider notes changes
+            if let existingNotesObserver = notesChangedObserver {
+                NotificationCenter.default.removeObserver(existingNotesObserver)
+            }
+
+            notesChangedObserver = NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("ProviderNotesChanged"),
+                object: nil,
+                queue: .main
+            ) { notification in
+                os_log("[AllMessagesView] Received provider notes changed notification",
+                       log: .default, type: .info)
+                // Toggle trigger to force UI to re-render notes icons
+                notesRefreshTrigger.toggle()
+            }
         }
         .onDisappear {
             // Don't remove notification observer - we need to keep listening for read status updates
@@ -206,6 +225,13 @@ struct AllMessagesView: View {
                 Text(error)
             }
         }
+    }
+
+    private func hasNotes(for conversationId: String) -> Bool {
+        // Access the trigger to make this reactive
+        _ = notesRefreshTrigger
+        let notes = store.loadProviderNotes(conversationId: conversationId)
+        return notes != nil && !notes!.isEmpty
     }
 
     private func loadConversations() async {
@@ -294,6 +320,7 @@ struct AllMessagesView: View {
 struct MessageConversationRow: View {
     let conversation: MessageConversationSummary
     let isUnread: Bool
+    let hasNotes: Bool
     @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
@@ -311,6 +338,13 @@ struct MessageConversationRow: View {
                     .lineLimit(1)
 
                 Spacer()
+
+                // Notes indicator
+                if hasNotes {
+                    Image(systemName: "note.text")
+                        .font(.system(size: 12))
+                        .foregroundColor(.primaryCoral)
+                }
 
                 if let timestamp = conversation.latestTimestamp {
                     Text(formatDate(timestamp))

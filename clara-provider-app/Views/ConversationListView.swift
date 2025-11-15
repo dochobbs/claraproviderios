@@ -1,4 +1,5 @@
 import SwiftUI
+import os.log
 
 struct ConversationListView: View {
     @EnvironmentObject var store: ProviderConversationStore
@@ -16,6 +17,7 @@ struct ConversationListView: View {
     @State private var unreadConversationIds: Set<String> = []
     @State private var isLoadingThreads = false
     @State private var unreadRefreshTrigger = false  // Toggle this to force UI refresh
+    @State private var notesRefreshTrigger = false  // Toggle this to force notes icons to refresh
 
     enum MainSection {
         case reviews, threads
@@ -294,7 +296,8 @@ struct ConversationListView: View {
                                 NavigationLink(destination: MessageDetailView(conversationId: validUUID).environmentObject(store)) {
                                     MessageConversationRowView(
                                         conversation: conversation,
-                                        isUnread: unreadConversationIds.contains(conversation.conversationId)
+                                        isUnread: unreadConversationIds.contains(conversation.conversationId),
+                                        hasNotes: hasNotesDebug(for: conversation.conversationId)
                                     )
                                 }
                                 .listRowBackground(Color.adaptiveBackground(for: colorScheme))
@@ -435,6 +438,22 @@ struct ConversationListView: View {
                     markConversationAsRead(conversationId: conversationId)
                 }
             }
+
+            // Listen for provider notes changes
+            NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("ProviderNotesChanged"),
+                object: nil,
+                queue: .main
+            ) { notification in
+                os_log("[ConversationListView] Received provider notes changed notification",
+                       log: .default, type: .info)
+                if let conversationId = notification.userInfo?["conversationId"] as? String {
+                    os_log("[ConversationListView] Notes changed for conversation: %{public}s",
+                           log: .default, type: .info, String(conversationId.prefix(8)))
+                }
+                notesRefreshTrigger.toggle()
+                os_log("[ConversationListView] Toggled notes refresh trigger", log: .default, type: .info)
+            }
         }
         .onDisappear {
             // Remove observer when view disappears to prevent memory leak
@@ -458,6 +477,31 @@ struct ConversationListView: View {
     }
 
     // MARK: - Helper Functions
+
+    func hasNotes(for conversationId: String) -> Bool {
+        // Access the trigger to make this reactive
+        _ = notesRefreshTrigger
+        let notes = store.loadProviderNotes(conversationId: conversationId)
+        let hasNotes = notes != nil && !notes!.isEmpty
+        if hasNotes {
+            os_log("[ConversationListView] Conversation %{public}s has notes",
+                   log: .default, type: .info, String(conversationId.prefix(8)))
+        }
+        return hasNotes
+    }
+
+    func hasNotesDebug(for conversationId: String) -> Bool {
+        // Access the trigger to make this reactive
+        _ = notesRefreshTrigger
+        let notes = store.loadProviderNotes(conversationId: conversationId)
+        let hasNotes = notes != nil && !notes!.isEmpty
+        os_log("[ConversationListView] Rendering %{public}s, hasNotes: %d, notes: %{public}s",
+               log: .default, type: .info,
+               String(conversationId.prefix(8)),
+               hasNotes ? 1 : 0,
+               notes ?? "nil")
+        return hasNotes
+    }
 
     func loadThreads() async {
         await MainActor.run { isLoadingThreads = true }
@@ -875,6 +919,7 @@ struct EmptyStateView: View {
 struct MessageConversationRowView: View {
     let conversation: MessageConversationSummary
     let isUnread: Bool
+    let hasNotes: Bool
     @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
@@ -892,6 +937,13 @@ struct MessageConversationRowView: View {
                     .lineLimit(1)
 
                 Spacer()
+
+                // Notes indicator
+                if hasNotes {
+                    Image(systemName: "note.text")
+                        .font(.system(size: 12))
+                        .foregroundColor(.primaryCoral)
+                }
 
                 if let timestamp = conversation.latestTimestamp {
                     Text(formatDate(timestamp))

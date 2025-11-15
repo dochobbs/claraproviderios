@@ -206,6 +206,17 @@ struct MessageDetailView: View {
                             providerNotes = ""
                         }
                     }
+
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(action: {
+                            providerNotes = ""
+                            saveProviderNotes()
+                        }) {
+                            Text("Clear")
+                                .foregroundColor(.red)
+                        }
+                        .disabled(savedProviderNotes == nil || savedProviderNotes!.isEmpty)
+                    }
                 }
             }
         }

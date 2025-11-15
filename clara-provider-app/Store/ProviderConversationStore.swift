@@ -591,22 +591,39 @@ class ProviderConversationStore: ObservableObject {
     /// Save provider notes for a conversation to UserDefaults
     /// These notes are internal only and not shown to patients
     func saveProviderNotes(conversationId: String, notes: String?) {
-        let key = providerNotesKey + conversationId
+        // Normalize to lowercase for consistent keys
+        let normalizedId = conversationId.lowercased()
+        let key = providerNotesKey + normalizedId
+
         if let notes = notes, !notes.isEmpty {
             UserDefaults.standard.set(notes, forKey: key)
-            os_log("[ProviderConversationStore] Saved provider notes for conversation %{public}s",
-                   log: .default, type: .info, conversationId)
+            os_log("[ProviderConversationStore] Saved provider notes for conversation %{public}s (normalized)",
+                   log: .default, type: .info, String(normalizedId.prefix(8)))
         } else {
             UserDefaults.standard.removeObject(forKey: key)
-            os_log("[ProviderConversationStore] Cleared provider notes for conversation %{public}s",
-                   log: .default, type: .info, conversationId)
+            os_log("[ProviderConversationStore] Cleared provider notes for conversation %{public}s (normalized)",
+                   log: .default, type: .info, String(normalizedId.prefix(8)))
         }
+
+        // Notify views to refresh notes indicators
+        NotificationCenter.default.post(
+            name: NSNotification.Name("ProviderNotesChanged"),
+            object: nil,
+            userInfo: ["conversationId": normalizedId]
+        )
     }
 
     /// Load provider notes for a conversation from UserDefaults
     func loadProviderNotes(conversationId: String) -> String? {
-        let key = providerNotesKey + conversationId
-        return UserDefaults.standard.string(forKey: key)
+        // Normalize to lowercase for consistent keys
+        let normalizedId = conversationId.lowercased()
+        let key = providerNotesKey + normalizedId
+        let notes = UserDefaults.standard.string(forKey: key)
+        if notes != nil {
+            os_log("[ProviderConversationStore] Loaded notes for %{public}s: %d characters",
+                   log: .default, type: .debug, String(normalizedId.prefix(8)), notes!.count)
+        }
+        return notes
     }
 
     /// Schedule a follow-up for a conversation
