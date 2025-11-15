@@ -10,20 +10,20 @@ struct ConversationListView: View {
     @State private var selectedRequestForFollowUp: ProviderReviewRequestDetail?
     @State private var selectedMainSection: MainSection = .reviews  // Which main section is active
     @State private var selectedReviewFilter: ReviewFilter = .pending  // Sub-filter for reviews
-    @State private var selectedMessageFilter: MessageFilter = .unread  // Sub-filter for messages
-    @State private var messageConversations: [MessageConversationSummary] = []
+    @State private var selectedThreadFilter: ThreadFilter = .unread  // Sub-filter for threads
+    @State private var threadConversations: [MessageConversationSummary] = []
     @State private var unreadConversationIds: Set<String> = []
-    @State private var isLoadingMessages = false
+    @State private var isLoadingThreads = false
 
     enum MainSection {
-        case reviews, messages
+        case reviews, threads
     }
 
     enum ReviewFilter {
         case pending, flagged, all
     }
 
-    enum MessageFilter {
+    enum ThreadFilter {
         case unread, flagged, all
     }
 
@@ -52,15 +52,15 @@ struct ConversationListView: View {
         return requests
     }
 
-    var filteredMessages: [MessageConversationSummary] {
-        var filtered = messageConversations
+    var filteredThreads: [MessageConversationSummary] {
+        var filtered = threadConversations
 
-        // Apply message filter
-        switch selectedMessageFilter {
+        // Apply thread filter
+        switch selectedThreadFilter {
         case .unread:
             filtered = filtered.filter { unreadConversationIds.contains($0.conversationId) }
         case .flagged:
-            // TODO: Add flagged logic once we have flagging in messages
+            // TODO: Add flagged logic once we have flagging in threads
             break
         case .all:
             break
@@ -77,11 +77,11 @@ struct ConversationListView: View {
         return filtered
     }
 
-    var unreadMessageCount: Int {
+    var unreadThreadCount: Int {
         unreadConversationIds.count
     }
 
-    var flaggedMessageCount: Int {
+    var flaggedThreadCount: Int {
         // TODO: Implement flagged count
         0
     }
@@ -115,31 +115,31 @@ struct ConversationListView: View {
                     )
                 }
 
-                // Messages button
+                // Threads button
                 Button(action: {
-                    selectedMainSection = .messages
-                    if messageConversations.isEmpty {
+                    selectedMainSection = .threads
+                    if threadConversations.isEmpty {
                         Task {
-                            await loadMessages()
+                            await loadThreads()
                         }
                     }
                 }) {
                     HStack(spacing: 6) {
-                        Text("Messages")
+                        Text("Threads")
                             .font(.rethinkSansBold(17, relativeTo: .headline))
-                        if unreadMessageCount > 0 {
-                            Text("(\(unreadMessageCount))")
+                        if unreadThreadCount > 0 {
+                            Text("(\(unreadThreadCount))")
                                 .font(.system(size: 15, weight: .semibold, design: .monospaced))
                         }
                     }
-                    .foregroundColor(selectedMainSection == .messages ? .white : Color.adaptiveLabel(for: colorScheme))
+                    .foregroundColor(selectedMainSection == .threads ? .white : Color.adaptiveLabel(for: colorScheme))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(selectedMainSection == .messages ? Color.primaryCoral : Color.clear)
+                    .background(selectedMainSection == .threads ? Color.primaryCoral : Color.clear)
                     .cornerRadius(10)
                     .overlay(
                         RoundedRectangle(cornerRadius: 10)
-                            .stroke(selectedMainSection == .messages ? Color.clear : Color.adaptiveSecondaryLabel(for: colorScheme).opacity(0.3), lineWidth: 1)
+                            .stroke(selectedMainSection == .threads ? Color.clear : Color.adaptiveSecondaryLabel(for: colorScheme).opacity(0.3), lineWidth: 1)
                     )
                 }
             }
@@ -181,32 +181,32 @@ struct ConversationListView: View {
                 .padding(.vertical, 6)
                 .background(Color.adaptiveBackground(for: colorScheme))
             } else {
-                // Messages sub-filters
+                // Threads sub-filters
                 HStack(spacing: 12) {
                     SubFilterButton(
                         title: "Unread",
-                        count: unreadMessageCount,
-                        isSelected: selectedMessageFilter == .unread
+                        count: unreadThreadCount,
+                        isSelected: selectedThreadFilter == .unread
                     ) {
-                        selectedMessageFilter = .unread
+                        selectedThreadFilter = .unread
                     }
                     .frame(maxWidth: .infinity)
 
                     SubFilterButton(
                         title: "Flagged",
-                        count: flaggedMessageCount,
-                        isSelected: selectedMessageFilter == .flagged
+                        count: flaggedThreadCount,
+                        isSelected: selectedThreadFilter == .flagged
                     ) {
-                        selectedMessageFilter = .flagged
+                        selectedThreadFilter = .flagged
                     }
                     .frame(maxWidth: .infinity)
 
                     SubFilterButton(
                         title: "All",
-                        count: messageConversations.count,
-                        isSelected: selectedMessageFilter == .all
+                        count: threadConversations.count,
+                        isSelected: selectedThreadFilter == .all
                     ) {
-                        selectedMessageFilter = .all
+                        selectedThreadFilter = .all
                     }
                     .frame(maxWidth: .infinity)
                 }
@@ -274,20 +274,20 @@ struct ConversationListView: View {
                     }
                 }
             } else {
-                // Messages list
-                if isLoadingMessages && messageConversations.isEmpty {
-                    ProgressView("Loading messages...")
+                // Threads list
+                if isLoadingThreads && threadConversations.isEmpty {
+                    ProgressView("Loading threads...")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .background(Color.adaptiveBackground(for: colorScheme))
-                } else if filteredMessages.isEmpty {
+                } else if filteredThreads.isEmpty {
                     EmptyStateView(
-                        title: searchText.isEmpty ? "No Messages" : "No Results",
-                        message: searchText.isEmpty ? "No conversations found in the messages table." : "Try adjusting your search."
+                        title: searchText.isEmpty ? "No Threads" : "No Results",
+                        message: searchText.isEmpty ? "No conversation threads found in the messages table." : "Try adjusting your search."
                     )
                     .background(Color.adaptiveBackground(for: colorScheme))
                 } else {
                     List {
-                        ForEach(filteredMessages, id: \.id) { conversation in
+                        ForEach(filteredThreads, id: \.id) { conversation in
                             if let validUUID = UUID(uuidString: conversation.conversationId) {
                                 NavigationLink(destination: MessageDetailView(conversationId: validUUID).environmentObject(store)) {
                                     MessageConversationRowView(
@@ -317,7 +317,7 @@ struct ConversationListView: View {
                     .scrollContentBackground(.hidden)
                     .background(Color.adaptiveBackground(for: colorScheme))
                     .refreshable {
-                        await loadMessages()
+                        await loadThreads()
                     }
                 }
             }
@@ -447,14 +447,14 @@ struct ConversationListView: View {
 
     // MARK: - Helper Functions
 
-    func loadMessages() async {
-        await MainActor.run { isLoadingMessages = true }
+    func loadThreads() async {
+        await MainActor.run { isLoadingThreads = true }
 
         do {
             let results = try await ProviderSupabaseService.shared.fetchAllConversationsFromMessages()
 
             await MainActor.run {
-                messageConversations = results
+                threadConversations = results
 
                 // Load unread status from UserDefaults
                 loadUnreadStatus()
@@ -470,11 +470,11 @@ struct ConversationListView: View {
                 // Save updated unread status
                 saveUnreadStatus()
 
-                isLoadingMessages = false
+                isLoadingThreads = false
             }
         } catch {
             await MainActor.run {
-                isLoadingMessages = false
+                isLoadingThreads = false
             }
         }
     }
