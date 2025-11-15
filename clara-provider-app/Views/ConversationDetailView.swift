@@ -763,6 +763,15 @@ struct ConversationDetailView: View {
         }
         content += "\n"
 
+        // Add provider notes (if any)
+        if let notes = store.loadProviderNotes(conversationId: conversationId.uuidString), !notes.isEmpty {
+            content += "═══════════════════════════════\n"
+            content += "PROVIDER NOTES (INTERNAL)\n"
+            content += "═══════════════════════════════\n\n"
+            content += notes
+            content += "\n\n"
+        }
+
         // Section 2: Full Conversation
         content += "═══════════════════════════════\n"
         content += "FULL CONVERSATION\n"
