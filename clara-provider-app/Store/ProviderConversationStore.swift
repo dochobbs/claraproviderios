@@ -584,6 +584,31 @@ class ProviderConversationStore: ObservableObject {
         }
     }
 
+    // MARK: - Provider Notes (Local Storage)
+
+    private let providerNotesKey = "provider_notes_"
+
+    /// Save provider notes for a conversation to UserDefaults
+    /// These notes are internal only and not shown to patients
+    func saveProviderNotes(conversationId: String, notes: String?) {
+        let key = providerNotesKey + conversationId
+        if let notes = notes, !notes.isEmpty {
+            UserDefaults.standard.set(notes, forKey: key)
+            os_log("[ProviderConversationStore] Saved provider notes for conversation %{public}s",
+                   log: .default, type: .info, conversationId)
+        } else {
+            UserDefaults.standard.removeObject(forKey: key)
+            os_log("[ProviderConversationStore] Cleared provider notes for conversation %{public}s",
+                   log: .default, type: .info, conversationId)
+        }
+    }
+
+    /// Load provider notes for a conversation from UserDefaults
+    func loadProviderNotes(conversationId: String) -> String? {
+        let key = providerNotesKey + conversationId
+        return UserDefaults.standard.string(forKey: key)
+    }
+
     /// Schedule a follow-up for a conversation
     func scheduleFollowUp(
         conversationId: UUID,
@@ -785,15 +810,62 @@ class ProviderConversationStore: ObservableObject {
         return 0
     }
 
-    /// Mark a message conversation as read (client-side tracking only)
-    /// This posts a notification that AllMessagesView can listen for
+    /// Mark a message conversation as read (updates both client-side and database)
+    /// This directly updates UserDefaults AND posts a notification for real-time UI updates
     func markMessageConversationAsRead(conversationId: String) {
+        // Normalize to lowercase to match database format
+        let normalizedId = conversationId.lowercased()
+
+        os_log("[ProviderConversationStore] markMessageConversationAsRead called for: %{public}s",
+               log: .default, type: .info, String(normalizedId.prefix(8)))
+
+        // Update UserDefaults directly (so it persists even if notification is missed)
+        if let data = UserDefaults.standard.data(forKey: "unreadMessageConversations"),
+           var unreadSet = try? JSONDecoder().decode(Set<String>.self, from: data) {
+            let sizeBefore = unreadSet.count
+            let wasPresent = unreadSet.contains(normalizedId)
+            unreadSet.remove(normalizedId)
+            let sizeAfter = unreadSet.count
+
+            os_log("[ProviderConversationStore] Unread set before: %d, was present: %d, after: %d",
+                   log: .default, type: .info, sizeBefore, wasPresent ? 1 : 0, sizeAfter)
+
+            if let encoded = try? JSONEncoder().encode(unreadSet) {
+                UserDefaults.standard.set(encoded, forKey: "unreadMessageConversations")
+                os_log("[ProviderConversationStore] Updated UserDefaults with new unread set",
+                       log: .default, type: .info)
+            }
+        } else {
+            os_log("[ProviderConversationStore] WARNING: No unread set found in UserDefaults or decode failed",
+                   log: .default, type: .error)
+        }
+
+        // Post notification for real-time UI updates (if AllMessagesView is visible)
+        os_log("[ProviderConversationStore] Posting notification for UI update",
+               log: .default, type: .info)
         NotificationCenter.default.post(
             name: NSNotification.Name("MarkMessageConversationAsRead"),
             object: nil,
-            userInfo: ["conversationId": conversationId]
+            userInfo: ["conversationId": normalizedId]
         )
-        os_log("[ProviderConversationStore] Posted notification to mark message conversation as read: %{public}s",
-               log: .default, type: .info, conversationId)
+
+        // Update database in background (non-blocking)
+        guard let uuid = UUID(uuidString: conversationId) else {
+            os_log("[ProviderConversationStore] Invalid conversation ID format: %{public}s",
+                   log: .default, type: .error, conversationId)
+            return
+        }
+
+        Task {
+            do {
+                try await supabaseService.markMessagesAsRead(conversationId: uuid)
+                os_log("[ProviderConversationStore] Successfully marked messages as read in database: %{public}s",
+                       log: .default, type: .info, conversationId)
+            } catch {
+                os_log("[ProviderConversationStore] Failed to mark messages as read in database: %{public}s - %{public}s",
+                       log: .default, type: .error, conversationId, String(describing: error))
+                // Don't throw - client-side tracking already updated, database is best-effort
+            }
+        }
     }
 }

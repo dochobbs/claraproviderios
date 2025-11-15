@@ -15,6 +15,7 @@ struct ConversationListView: View {
     @State private var threadConversations: [MessageConversationSummary] = []
     @State private var unreadConversationIds: Set<String> = []
     @State private var isLoadingThreads = false
+    @State private var unreadRefreshTrigger = false  // Toggle this to force UI refresh
 
     enum MainSection {
         case reviews, threads
@@ -79,7 +80,9 @@ struct ConversationListView: View {
     }
 
     var unreadThreadCount: Int {
-        unreadConversationIds.count
+        // Access the trigger to make this reactive
+        _ = unreadRefreshTrigger
+        return unreadConversationIds.count
     }
 
     var flaggedThreadCount: Int {
@@ -128,10 +131,8 @@ struct ConversationListView: View {
                     HStack(spacing: 6) {
                         Text("Threads")
                             .font(.rethinkSansBold(17, relativeTo: .headline))
-                        if !threadConversations.isEmpty {
-                            Text("(\(threadConversations.count))")
-                                .font(.system(size: 15, weight: .semibold, design: .monospaced))
-                        }
+                        Text("(\(unreadThreadCount))")
+                            .font(.system(size: 15, weight: .semibold, design: .monospaced))
                     }
                     .foregroundColor(selectedMainSection == .threads ? .white : Color.adaptiveLabel(for: colorScheme))
                     .frame(maxWidth: .infinity)
@@ -500,6 +501,7 @@ struct ConversationListView: View {
         if let data = UserDefaults.standard.data(forKey: "unreadMessageConversations"),
            let decoded = try? JSONDecoder().decode(Set<String>.self, from: data) {
             unreadConversationIds = decoded
+            unreadRefreshTrigger.toggle()  // Force UI to re-render the count
         }
     }
 
@@ -525,6 +527,7 @@ struct ConversationListView: View {
 
     func markConversationAsRead(conversationId: String) {
         unreadConversationIds.remove(conversationId)
+        unreadRefreshTrigger.toggle()  // Force UI to re-render the count
         saveUnreadStatus()
     }
 }

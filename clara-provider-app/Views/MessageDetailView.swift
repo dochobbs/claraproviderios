@@ -13,6 +13,16 @@ struct MessageDetailView: View {
     @State private var flagReason = ""
     @State private var isFlagging = false
     @State private var isFlagged = false
+    @State private var showingNotesModal = false
+    @State private var providerNotes = ""
+    @State private var notesRefreshTrigger = false  // Toggle this to force view refresh
+
+    // Load notes from UserDefaults
+    private var savedProviderNotes: String? {
+        // Access notesRefreshTrigger to make this computed property reactive to state changes
+        _ = notesRefreshTrigger
+        return store.loadProviderNotes(conversationId: conversationId.uuidString)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -58,6 +68,17 @@ struct MessageDetailView: View {
                             .foregroundColor(.primaryCoral)
                     }
                     .accessibilityLabel("Share conversation")
+
+                    // Provider notes button
+                    Button(action: {
+                        providerNotes = savedProviderNotes ?? ""
+                        showingNotesModal = true
+                    }) {
+                        let hasNotes = savedProviderNotes != nil && !savedProviderNotes!.isEmpty
+                        Image(systemName: "note.text")
+                            .foregroundColor(hasNotes ? .primaryCoral : .gray)
+                    }
+                    .accessibilityLabel("Provider notes")
 
                     Button(action: {
                         if isFlagged {
@@ -138,6 +159,56 @@ struct MessageDetailView: View {
                 }
             }
         }
+        .sheet(isPresented: $showingNotesModal) {
+            NavigationStack {
+                VStack(spacing: 20) {
+                    Text("Provider Notes")
+                        .font(.rethinkSansBold(22, relativeTo: .title2))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
+
+                    Text("Internal notes (not shown to patient)")
+                        .font(.rethinkSans(14, relativeTo: .caption))
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal)
+                        .padding(.top, -15)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        TextEditor(text: $providerNotes)
+                            .font(.rethinkSans(15, relativeTo: .body))
+                            .frame(minHeight: 150, maxHeight: 300)
+                            .padding(8)
+                            .border(Color.adaptiveSecondaryBackground(for: colorScheme))
+                            .cornerRadius(8)
+                    }
+                    .padding(.horizontal)
+
+                    Spacer()
+
+                    Button(action: saveProviderNotes) {
+                        Text("Save Notes")
+                            .font(.rethinkSansBold(17, relativeTo: .body))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .foregroundColor(.white)
+                    .background(Color.primaryCoral)
+                    .cornerRadius(12)
+                    .padding()
+                }
+                .background(Color.adaptiveBackground(for: colorScheme))
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button("Cancel") {
+                            showingNotesModal = false
+                            providerNotes = ""
+                        }
+                    }
+                }
+            }
+        }
         .onAppear {
             Task {
                 await loadMessages()
@@ -145,6 +216,8 @@ struct MessageDetailView: View {
             }
 
             // Mark this conversation as read for AllMessagesView tracking
+            os_log("[MessageDetailView] CALLING markMessageConversationAsRead for: %{public}s",
+                   log: .default, type: .info, conversationId.uuidString)
             store.markMessageConversationAsRead(conversationId: conversationId.uuidString)
         }
         .alert("Error", isPresented: .init(
@@ -275,6 +348,15 @@ struct MessageDetailView: View {
                 os_log("[MessageDetailView] Error unflagging conversation: %{public}s", log: .default, type: .error, String(describing: error))
             }
         }
+    }
+
+    private func saveProviderNotes() {
+        let notesToSave = providerNotes.isEmpty ? nil : providerNotes
+        store.saveProviderNotes(conversationId: conversationId.uuidString, notes: notesToSave)
+        showingNotesModal = false
+        notesRefreshTrigger.toggle()  // Force view to refresh and update note icon color
+        HapticFeedback.success()
+        os_log("[MessageDetailView] Provider notes saved successfully", log: .default, type: .info)
     }
 }
 

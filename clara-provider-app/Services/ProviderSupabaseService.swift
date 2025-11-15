@@ -887,8 +887,58 @@ class ProviderSupabaseService: SupabaseServiceBase {
         return summaries
     }
     
+    // MARK: - Mark Messages as Read
+
+    /// Mark all messages as read for a specific conversation
+    /// Updates both messages and follow_up_messages tables
+    func markMessagesAsRead(conversationId: UUID) async throws {
+        os_log("[ProviderSupabaseService] Marking messages as read for conversation: %{public}s",
+               log: .default, type: .info, conversationId.uuidString)
+
+        // Update messages table
+        let messagesUrlString = "\(projectURL)/rest/v1/messages?conversation_id=eq.\(conversationId.uuidString)&is_from_user=eq.true"
+
+        guard let messagesUrl = URL(string: messagesUrlString) else {
+            throw SupabaseError.invalidResponse
+        }
+
+        var messagesRequest = createPatchRequest(url: messagesUrl)
+        let messagesPayload: [String: Any] = ["is_read": true]
+        messagesRequest.httpBody = try JSONSerialization.data(withJSONObject: messagesPayload)
+
+        // Update follow_up_messages table
+        let followUpUrlString = "\(projectURL)/rest/v1/follow_up_messages?conversation_id=eq.\(conversationId.uuidString)&is_from_user=eq.true"
+
+        guard let followUpUrl = URL(string: followUpUrlString) else {
+            throw SupabaseError.invalidResponse
+        }
+
+        var followUpRequest = createPatchRequest(url: followUpUrl)
+        let followUpPayload: [String: Any] = ["is_read": true]
+        followUpRequest.httpBody = try JSONSerialization.data(withJSONObject: followUpPayload)
+
+        // Execute both requests (don't throw if one fails - not all conversations have both)
+        do {
+            try await executeRequest(messagesRequest)
+            os_log("[ProviderSupabaseService] Marked messages as read in messages table",
+                   log: .default, type: .debug)
+        } catch {
+            os_log("[ProviderSupabaseService] Could not update messages table: %{public}s",
+                   log: .default, type: .debug, String(describing: error))
+        }
+
+        do {
+            try await executeRequest(followUpRequest)
+            os_log("[ProviderSupabaseService] Marked messages as read in follow_up_messages table",
+                   log: .default, type: .debug)
+        } catch {
+            os_log("[ProviderSupabaseService] Could not update follow_up_messages table: %{public}s",
+                   log: .default, type: .debug, String(describing: error))
+        }
+    }
+
     // MARK: - Dashboard Statistics
-    
+
     /// Fetch dashboard statistics
     func fetchDashboardStats() async throws -> ProviderDashboardStats {
         // Fetch all reviews to calculate stats

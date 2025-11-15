@@ -18,8 +18,18 @@ struct ConversationDetailView: View {
     @State private var showingFlagModal = false
     @State private var flagReason = ""
     @State private var isFlagging = false
+    @State private var showingNotesModal = false
+    @State private var providerNotes = ""
+    @State private var notesRefreshTrigger = false  // Toggle this to force view refresh
     @State private var isCancellingFollowUp = false
     @State private var shareItem: ShareItem? = nil
+
+    // MARK: - Provider Notes (Local)
+    private var savedProviderNotes: String? {
+        // Access notesRefreshTrigger to make this computed property reactive to state changes
+        _ = notesRefreshTrigger
+        return store.loadProviderNotes(conversationId: conversationId.uuidString)
+    }
 
     // MARK: - Message Pagination
     @State private var allMessages: [Message] = []  // Store full message list
@@ -86,6 +96,17 @@ struct ConversationDetailView: View {
                         if detail.scheduleFollowup == true {
                             cancelFollowUpButton
                         }
+
+                        // Provider notes button
+                        Button(action: {
+                            providerNotes = savedProviderNotes ?? ""
+                            showingNotesModal = true
+                        }) {
+                            let hasNotes = savedProviderNotes != nil && !savedProviderNotes!.isEmpty
+                            Image(systemName: "note.text")
+                                .foregroundColor(hasNotes ? .primaryCoral : .gray)
+                        }
+                        .accessibilityLabel("Provider notes")
 
                         Button(action: {
                             if detail.isFlagged == true {
@@ -168,6 +189,56 @@ struct ConversationDetailView: View {
                         Button("Cancel") {
                             showingFlagModal = false
                             flagReason = ""
+                        }
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showingNotesModal) {
+            NavigationStack {
+                VStack(spacing: 20) {
+                    Text("Provider Notes")
+                        .font(.rethinkSansBold(22, relativeTo: .title2))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
+
+                    Text("Internal notes (not shown to patient)")
+                        .font(.rethinkSans(14, relativeTo: .caption))
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal)
+                        .padding(.top, -15)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        TextEditor(text: $providerNotes)
+                            .font(.rethinkSans(15, relativeTo: .body))
+                            .frame(minHeight: 150, maxHeight: 300)
+                            .padding(8)
+                            .border(Color.adaptiveSecondaryBackground(for: colorScheme))
+                            .cornerRadius(8)
+                    }
+                    .padding(.horizontal)
+
+                    Spacer()
+
+                    Button(action: saveProviderNotes) {
+                        Text("Save Notes")
+                            .font(.rethinkSansBold(17, relativeTo: .body))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .foregroundColor(.white)
+                    .background(Color.primaryCoral)
+                    .cornerRadius(12)
+                    .padding()
+                }
+                .background(Color.adaptiveBackground(for: colorScheme))
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button("Cancel") {
+                            showingNotesModal = false
+                            providerNotes = ""
                         }
                     }
                 }
@@ -274,7 +345,7 @@ struct ConversationDetailView: View {
                             if let review = conversationReview,
                                let status = review.status,
                                status.lowercased() != "pending" {
-                                ReviewResultView(review: review, onReopen: reopenResponse)
+                                ReviewResultView(review: review, providerNotes: savedProviderNotes, onReopen: reopenResponse)
                                     .onAppear {
                                         os_log("[ConversationDetailView] 📦 ReviewResultView APPEARED with status=%{public}s", log: .default, type: .info, status)
                                     }
@@ -296,7 +367,7 @@ struct ConversationDetailView: View {
                        let review = conversationReview,
                        let status = review.status,
                        status.lowercased() != "pending" {
-                        ReviewResultView(review: review, onReopen: reopenResponse)
+                        ReviewResultView(review: review, providerNotes: savedProviderNotes, onReopen: reopenResponse)
                             .padding(.horizontal)
                     }
                 }
@@ -632,6 +703,17 @@ struct ConversationDetailView: View {
                 HapticFeedback.error()
             }
         }
+    }
+
+    // MARK: - Provider Notes
+
+    private func saveProviderNotes() {
+        let notesToSave = providerNotes.isEmpty ? nil : providerNotes
+        store.saveProviderNotes(conversationId: conversationId.uuidString, notes: notesToSave)
+        showingNotesModal = false
+        notesRefreshTrigger.toggle()  // Force view to refresh and update note icon color
+        HapticFeedback.success()
+        os_log("[ConversationDetailView] Provider notes saved successfully", log: .default, type: .info)
     }
 
     // MARK: - Share Methods
@@ -1195,6 +1277,7 @@ struct ClaraMarkdownView: View {
 
 struct ReviewResultView: View {
     let review: ProviderReviewRequestDetail
+    let providerNotes: String?  // Local notes from UserDefaults
     var onReopen: (() -> Void)? = nil
     @State private var responseExpanded: Bool = false  // Start collapsed
 
@@ -1321,6 +1404,34 @@ struct ReviewResultView: View {
                         }
 
                         Text(reason)
+                            .font(.system(.subheadline, design: .monospaced))
+                            .foregroundColor(.primary)
+                    }
+                }
+
+                // Display provider notes (internal only) - loaded from UserDefaults
+                if let notes = providerNotes, !notes.isEmpty {
+                    Divider()
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "note.text")
+                                .foregroundColor(.primaryCoral)
+                                .font(.caption)
+
+                            Text("Provider Notes (Internal)")
+                                .font(.system(.caption, design: .monospaced))
+                                .foregroundColor(.primaryCoral)
+                                .fontWeight(.semibold)
+
+                            Spacer()
+
+                            Text("Not shown to patient")
+                                .font(.system(.caption2, design: .monospaced))
+                                .foregroundColor(.secondary)
+                                .italic()
+                        }
+
+                        Text(notes)
                             .font(.system(.subheadline, design: .monospaced))
                             .foregroundColor(.primary)
                     }

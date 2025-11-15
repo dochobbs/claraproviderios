@@ -10,6 +10,7 @@ struct AllMessagesView: View {
     @State private var searchText: String = ""
     @State private var selectedFilter: MessageFilter = .unread
     @State private var unreadConversationIds: Set<String> = []  // Track which conversations are unread
+    @State private var unreadRefreshTrigger = false  // Toggle this to force UI refresh
     @State private var notificationObserver: NSObjectProtocol?
 
     enum MessageFilter {
@@ -42,7 +43,9 @@ struct AllMessagesView: View {
     }
 
     var unreadCount: Int {
-        unreadConversationIds.count
+        // Access the trigger to make this reactive
+        _ = unreadRefreshTrigger
+        return unreadConversationIds.count
     }
 
     var flaggedCount: Int {
@@ -104,7 +107,7 @@ struct AllMessagesView: View {
                             NavigationLink(destination: MessageDetailView(conversationId: validUUID).environmentObject(store)) {
                                 MessageConversationRow(
                                     conversation: conversation,
-                                    isUnread: unreadConversationIds.contains(conversation.conversationId)
+                                    isUnread: unreadConversationIds.contains(conversation.conversationId.lowercased())
                                 )
                             }
                             .listRowBackground(Color.adaptiveBackground(for: colorScheme))
@@ -138,6 +141,12 @@ struct AllMessagesView: View {
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $searchText, prompt: "Search conversations...")
         .onAppear {
+            os_log("[AllMessagesView] View appeared - reloading unread status",
+                   log: .default, type: .info)
+
+            // Always reload unread status from UserDefaults to pick up changes made while view was not visible
+            loadUnreadStatus()
+
             if conversations.isEmpty {
                 Task {
                     await loadConversations()
@@ -147,7 +156,12 @@ struct AllMessagesView: View {
             // Listen for mark-as-read notifications
             if let existingObserver = notificationObserver {
                 NotificationCenter.default.removeObserver(existingObserver)
+                os_log("[AllMessagesView] Removed existing notification observer",
+                       log: .default, type: .info)
             }
+
+            os_log("[AllMessagesView] Setting up notification observer for mark-as-read",
+                   log: .default, type: .info)
 
             notificationObserver = NotificationCenter.default.addObserver(
                 forName: NSNotification.Name("MarkMessageConversationAsRead"),
@@ -155,16 +169,24 @@ struct AllMessagesView: View {
                 queue: .main
             ) { notification in
                 if let conversationId = notification.userInfo?["conversationId"] as? String {
-                    markConversationAsRead(conversationId: conversationId)
+                    os_log("[AllMessagesView] Received mark-as-read notification for: %{public}s",
+                           log: .default, type: .info, String(conversationId.prefix(8)))
+
+                    // Reload from UserDefaults to get the updated state from Store
+                    loadUnreadStatus()
+
+                    // Toggle trigger to force UI to re-render with new count
+                    unreadRefreshTrigger.toggle()
+
+                    os_log("[AllMessagesView] Reloaded unread status, new count: %d",
+                           log: .default, type: .info, unreadConversationIds.count)
                 }
             }
         }
         .onDisappear {
-            // Clean up notification observer
-            if let observer = notificationObserver {
-                NotificationCenter.default.removeObserver(observer)
-                notificationObserver = nil
-            }
+            // Don't remove notification observer - we need to keep listening for read status updates
+            // even when this view is not visible (e.g., when user navigates to read a message)
+            // The observer will be cleaned up when the view is deallocated
         }
         .alert("Error", isPresented: .init(
             get: { errorMessage != nil },
@@ -201,9 +223,10 @@ struct AllMessagesView: View {
 
                 // Initialize any new conversations as unread if not already tracked
                 for conversation in results {
-                    if !hasBeenTracked(conversationId: conversation.conversationId) {
-                        unreadConversationIds.insert(conversation.conversationId)
-                        markAsTracked(conversationId: conversation.conversationId)
+                    let normalizedId = conversation.conversationId.lowercased()
+                    if !hasBeenTracked(conversationId: normalizedId) {
+                        unreadConversationIds.insert(normalizedId)
+                        markAsTracked(conversationId: normalizedId)
                     }
                 }
 
@@ -227,7 +250,14 @@ struct AllMessagesView: View {
     private func loadUnreadStatus() {
         if let data = UserDefaults.standard.data(forKey: "unreadMessageConversations"),
            let decoded = try? JSONDecoder().decode(Set<String>.self, from: data) {
+            os_log("[AllMessagesView] Loading unread status from UserDefaults: %d unread conversations",
+                   log: .default, type: .info, decoded.count)
             unreadConversationIds = decoded
+            os_log("[AllMessagesView] Unread IDs: %{public}s",
+                   log: .default, type: .debug, decoded.map { String($0.prefix(8)) }.joined(separator: ", "))
+        } else {
+            os_log("[AllMessagesView] No unread status found in UserDefaults",
+                   log: .default, type: .info)
         }
     }
 
@@ -253,9 +283,11 @@ struct AllMessagesView: View {
     }
 
     private func markConversationAsRead(conversationId: String) {
-        unreadConversationIds.remove(conversationId)
+        let normalizedId = conversationId.lowercased()
+        unreadConversationIds.remove(normalizedId)
+        unreadRefreshTrigger.toggle()  // Force UI to re-render the count
         saveUnreadStatus()
-        os_log("[AllMessagesView] Marked conversation as read: %{public}s", log: .default, type: .info, conversationId)
+        os_log("[AllMessagesView] Marked conversation as read: %{public}s", log: .default, type: .info, String(normalizedId.prefix(8)))
     }
 }
 
