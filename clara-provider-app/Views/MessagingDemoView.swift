@@ -54,7 +54,7 @@ struct MessagingDemoView: View {
                 }
                 .scrollDismissesKeyboard(.interactively)  // Allow dismissing keyboard by scrolling
                 .ignoresSafeArea(.keyboard, edges: .bottom)  // Allow ScrollView to extend under keyboard
-                .onChange(of: demoMessages.count) { _ in
+                .onChange(of: demoMessages.count) {
                     // Auto-scroll to bottom when new message is added
                     withAnimation {
                         proxy.scrollTo("bottom", anchor: .bottom)

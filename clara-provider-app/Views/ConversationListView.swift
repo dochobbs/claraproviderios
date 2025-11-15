@@ -11,7 +11,7 @@ struct ConversationListView: View {
     @State private var selectedRequestForFollowUp: ProviderReviewRequestDetail?
     @State private var selectedMainSection: MainSection = .reviews  // Which main section is active
     @State private var selectedReviewFilter: ReviewFilter = .pending  // Sub-filter for reviews
-    @State private var selectedThreadFilter: ThreadFilter = .unread  // Sub-filter for threads
+    @State private var selectedThreadFilter: ThreadFilter = .all  // Sub-filter for threads
     @State private var threadConversations: [MessageConversationSummary] = []
     @State private var unreadConversationIds: Set<String> = []
     @State private var isLoadingThreads = false
@@ -128,8 +128,8 @@ struct ConversationListView: View {
                     HStack(spacing: 6) {
                         Text("Threads")
                             .font(.rethinkSansBold(17, relativeTo: .headline))
-                        if unreadThreadCount > 0 {
-                            Text("(\(unreadThreadCount))")
+                        if !threadConversations.isEmpty {
+                            Text("(\(threadConversations.count))")
                                 .font(.system(size: 15, weight: .semibold, design: .monospaced))
                         }
                     }
@@ -469,6 +469,12 @@ struct ConversationListView: View {
 
                 // Load unread status from UserDefaults
                 loadUnreadStatus()
+
+                // Create a set of current conversation IDs
+                let currentConversationIds = Set(results.map { $0.conversationId })
+
+                // Clean up stale unread IDs (remove conversations that no longer exist)
+                unreadConversationIds = unreadConversationIds.intersection(currentConversationIds)
 
                 // Initialize any new conversations as unread if not already tracked
                 for conversation in results {

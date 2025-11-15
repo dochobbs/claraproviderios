@@ -173,8 +173,8 @@ struct ContentView: View {
                     // Use the patient's id as a stable UUID if provided; otherwise generate
                     let uuid = p.id
                     let display = (p.name?.trimmingCharacters(in: .whitespacesAndNewlines)).flatMap { $0.isEmpty ? nil : $0 } ?? "Patient"
-                    os_log("[ContentView] Patient: %{public}s (ID: %{public}s, UserID: %{public}s)", log: .default, type: .debug, display, uuid.uuidString, p.userId)
-                    return PatientListItem(id: uuid, userId: p.userId, name: display)
+                    os_log("[ContentView] Patient: %{public}s (ID: %{public}s, UserID: %{public}s)", log: .default, type: .debug, display, uuid.uuidString, p.userId ?? "nil")
+                    return PatientListItem(id: uuid, userId: p.userId ?? "", name: display)
                 }
                 await MainActor.run {
                     self.patients = mapped

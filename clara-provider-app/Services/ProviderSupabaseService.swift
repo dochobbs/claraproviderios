@@ -688,8 +688,9 @@ class ProviderSupabaseService: SupabaseServiceBase {
     
     // MARK: - Fetch Patients
     func fetchPatients() async throws -> [PatientSummary] {
-        // Adjust selected fields to match your `patients` schema
-        let urlString = "\(projectURL)/rest/v1/patients?select=id,user_id,name&order=name.asc"
+        // Note: patients table doesn't have user_id column, so we select only id and name
+        // The app falls back to getting patients from review requests if this fails
+        let urlString = "\(projectURL)/rest/v1/patients?select=id,name&order=name.asc"
         guard let url = URL(string: urlString) else { throw SupabaseError.invalidResponse }
         let request = createRequest(url: url, method: "GET")
         return try await executeRequest(request, responseType: [PatientSummary].self)
@@ -759,18 +760,26 @@ class ProviderSupabaseService: SupabaseServiceBase {
         // Query the messages table and select distinct conversation_ids with latest timestamp
         // Note: Supabase doesn't have a GROUP BY with aggregates in REST API,
         // so we fetch all messages and group them client-side
-        // IMPORTANT: Set limit=10000 to fetch all messages (default is 1000)
-        let urlString = "\(projectURL)/rest/v1/messages?select=conversation_id,timestamp,content,is_from_user&order=timestamp.desc&limit=10000"
+        // IMPORTANT: Supabase has a server-side limit of 1000 rows, so we paginate
 
-        guard let url = URL(string: urlString) else {
-            throw SupabaseError.invalidResponse
-        }
+        os_log("[ProviderSupabaseService] Fetching all messages from messages table (with pagination)", log: .default, type: .debug)
 
-        let request = createRequest(url: url, method: "GET")
+        var allMessages: [[String: Any]] = []
+        var offset = 0
+        let pageSize = 1000
 
-        os_log("[ProviderSupabaseService] Fetching all messages from messages table", log: .default, type: .debug)
+        // Fetch messages in batches of 1000 until we get less than a full page
+        while true {
+            let urlString = "\(projectURL)/rest/v1/messages?select=conversation_id,timestamp,content,is_from_user&order=timestamp.desc&limit=\(pageSize)&offset=\(offset)"
 
-        do {
+            guard let url = URL(string: urlString) else {
+                throw SupabaseError.invalidResponse
+            }
+
+            let request = createRequest(url: url, method: "GET")
+
+            os_log("[ProviderSupabaseService] Fetching page at offset=%d", log: .default, type: .debug, offset)
+
             let (data, response) = try await URLSession.shared.data(for: request)
 
             guard let httpResponse = response as? HTTPURLResponse else {
@@ -782,69 +791,100 @@ class ProviderSupabaseService: SupabaseServiceBase {
                 throw SupabaseError.requestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
             }
 
-            // Decode messages
+            // Decode this page of messages
             let jsonArray = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] ?? []
 
-            os_log("[ProviderSupabaseService] Fetched %d messages from messages table", log: .default, type: .info, jsonArray.count)
+            os_log("[ProviderSupabaseService] Fetched %d messages in this page (offset=%d)", log: .default, type: .info, jsonArray.count, offset)
 
-            // Group by conversation_id and create summaries
-            // Also track which conversations have both user and assistant messages
-            var conversationsDict: [String: MessageConversationSummary] = [:]
-            var conversationMessageTypes: [String: (hasUser: Bool, hasAssistant: Bool)] = [:]
+            // Add to accumulator
+            allMessages.append(contentsOf: jsonArray)
 
-            for item in jsonArray {
-                guard let conversationIdString = item["conversation_id"] as? String else {
-                    continue
-                }
-
-                let timestamp = item["timestamp"] as? String
-                let messageContent = item["content"] as? String
-                let isFromUser = item["is_from_user"] as? Bool ?? false
-
-                // Track message types for this conversation
-                var types = conversationMessageTypes[conversationIdString] ?? (hasUser: false, hasAssistant: false)
-                if isFromUser {
-                    types.hasUser = true
-                } else {
-                    types.hasAssistant = true
-                }
-                conversationMessageTypes[conversationIdString] = types
-
-                // If this conversation doesn't exist yet, or if this message is newer, update the summary
-                if conversationsDict[conversationIdString] == nil {
-                    // Create new conversation summary (userId will be nil since messages table doesn't have it)
-                    conversationsDict[conversationIdString] = MessageConversationSummary(
-                        conversationId: conversationIdString,
-                        userId: nil,
-                        latestTimestamp: timestamp,
-                        latestMessagePreview: messageContent,
-                        latestIsFromUser: isFromUser
-                    )
-                }
+            // If we got less than a full page, we're done
+            if jsonArray.count < pageSize {
+                break
             }
 
-            // Filter to only include conversations with BOTH user and assistant messages
-            let completeConversations = conversationsDict.filter { conversationId, _ in
-                if let types = conversationMessageTypes[conversationId] {
-                    return types.hasUser && types.hasAssistant
-                }
+            // Move to next page
+            offset += pageSize
+        }
+
+        os_log("[ProviderSupabaseService] Total fetched: %d messages from messages table", log: .default, type: .info, allMessages.count)
+
+        // Group by conversation_id and create summaries
+        // Also track which conversations have both user and assistant messages
+        var conversationsDict: [String: MessageConversationSummary] = [:]
+        var conversationMessageTypes: [String: (hasUser: Bool, hasAssistant: Bool)] = [:]
+
+        for item in allMessages {
+            guard let conversationIdString = item["conversation_id"] as? String else {
+                continue
+            }
+
+            let timestamp = item["timestamp"] as? String
+            let messageContent = item["content"] as? String
+            let isFromUser = item["is_from_user"] as? Bool ?? false
+
+            // Track message types for this conversation
+            var types = conversationMessageTypes[conversationIdString] ?? (hasUser: false, hasAssistant: false)
+            if isFromUser {
+                types.hasUser = true
+            } else {
+                types.hasAssistant = true
+            }
+            conversationMessageTypes[conversationIdString] = types
+
+            // If this conversation doesn't exist yet, or if this message is newer, update the summary
+            if conversationsDict[conversationIdString] == nil {
+                // Create new conversation summary (userId will be nil since messages table doesn't have it)
+                conversationsDict[conversationIdString] = MessageConversationSummary(
+                    conversationId: conversationIdString,
+                    userId: nil,
+                    latestTimestamp: timestamp,
+                    latestMessagePreview: messageContent,
+                    latestIsFromUser: isFromUser
+                )
+            }
+        }
+
+        // Debug logging: Count message type combinations
+        var bothCount = 0
+        var userOnlyCount = 0
+        var assistantOnlyCount = 0
+        var neitherCount = 0
+
+        for (_, types) in conversationMessageTypes {
+            if types.hasUser && types.hasAssistant {
+                bothCount += 1
+            } else if types.hasUser {
+                userOnlyCount += 1
+            } else if types.hasAssistant {
+                assistantOnlyCount += 1
+            } else {
+                neitherCount += 1
+            }
+        }
+
+        os_log("[ProviderSupabaseService] Message type breakdown - Both: %d, User-only: %d, Assistant-only: %d, Neither: %d, Total: %d",
+               log: .default, type: .info, bothCount, userOnlyCount, assistantOnlyCount, neitherCount, conversationMessageTypes.count)
+
+        // Filter to only include conversations with BOTH user and assistant messages
+        let completeConversations = conversationsDict.filter { (conversationId, _) in
+            guard let types = conversationMessageTypes[conversationId] else {
                 return false
             }
-
-            // Convert to array and sort by latest timestamp (descending)
-            let summaries = completeConversations.values.sorted { (a, b) in
-                guard let aTime = a.latestTimestamp, let bTime = b.latestTimestamp else {
-                    return false
-                }
-                return aTime > bTime
-            }
-
-            os_log("[ProviderSupabaseService] Found %d complete conversations (with both user and assistant messages) from %d total unique conversations", log: .default, type: .info, summaries.count, conversationsDict.count)
-            return summaries
-        } catch {
-            os_log("[ProviderSupabaseService] Error fetching messages: %{public}s", log: .default, type: .error, String(describing: error))
-            throw error
+            return types.hasUser && types.hasAssistant
         }
+
+        // Convert to array and sort by latest timestamp (descending)
+        let summaries = completeConversations.values.sorted { (a, b) in
+            guard let aTime = a.latestTimestamp, let bTime = b.latestTimestamp else {
+                return false
+            }
+            return aTime > bTime
+        }
+
+        os_log("[ProviderSupabaseService] Found %d complete conversations (with both user and assistant messages) from %d total unique conversations", log: .default, type: .info, summaries.count, conversationsDict.count)
+        return summaries
     }
     
     // MARK: - Dashboard Statistics
@@ -936,7 +976,7 @@ struct ConversationSummary: Codable, Identifiable, Hashable {
 // MARK: - Patient Summary Model
 struct PatientSummary: Codable, Identifiable, Hashable {
     let id: UUID
-    let userId: String
+    let userId: String?  // Optional since patients table doesn't have user_id column
     let name: String?
 
     enum CodingKeys: String, CodingKey {
