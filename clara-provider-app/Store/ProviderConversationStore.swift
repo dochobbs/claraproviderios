@@ -62,6 +62,30 @@ class ProviderConversationStore: ObservableObject {
         }
         return uuid
     }
+
+    // MARK: - Error Filtering
+
+    /// Check if an error is a cancellation error that should not be shown to users
+    /// Cancellation errors are benign and occur during normal app lifecycle (backgrounding, view dismissal, etc.)
+    private func isCancellationError(_ error: Error) -> Bool {
+        // Check for URLError cancellation
+        if let urlError = error as? URLError {
+            return urlError.code == .cancelled
+        }
+
+        // Check for NSError cancellation (code -999)
+        let nsError = error as NSError
+        if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled {
+            return true
+        }
+
+        // Check for Task cancellation
+        if error is CancellationError {
+            return true
+        }
+
+        return false
+    }
     
     // MARK: - Load Review Requests
 
@@ -124,14 +148,22 @@ class ProviderConversationStore: ObservableObject {
         } catch {
             await MainActor.run {
                 let errorDesc = error.localizedDescription
-                errorMessage = errorDesc
-                isLoading = false
-                os_log("[ProviderConversationStore] Error loading review requests: %{public}s",
-                       log: .default, type: .error, errorDesc)
-                if let supabaseError = error as? SupabaseError {
-                    os_log("[ProviderConversationStore] Supabase error: %{public}s",
-                           log: .default, type: .error, supabaseError.localizedDescription)
+
+                // Filter out cancellation errors - they're benign and shouldn't be shown to users
+                if !isCancellationError(error) {
+                    errorMessage = errorDesc
+                    os_log("[ProviderConversationStore] Error loading review requests: %{public}s",
+                           log: .default, type: .error, errorDesc)
+                    if let supabaseError = error as? SupabaseError {
+                        os_log("[ProviderConversationStore] Supabase error: %{public}s",
+                               log: .default, type: .error, supabaseError.localizedDescription)
+                    }
+                } else {
+                    os_log("[ProviderConversationStore] Request cancelled (benign) - not showing to user",
+                           log: .default, type: .debug)
                 }
+
+                isLoading = false
             }
         }
     }
@@ -164,10 +196,16 @@ class ProviderConversationStore: ObservableObject {
             }
         } catch {
             await MainActor.run {
-                errorMessage = error.localizedDescription
+                // Filter out cancellation errors
+                if !isCancellationError(error) {
+                    errorMessage = error.localizedDescription
+                    os_log("[ProviderConversationStore] Error loading filtered review requests: %{public}s",
+                           log: .default, type: .error, error.localizedDescription)
+                } else {
+                    os_log("[ProviderConversationStore] Filtered request cancelled (benign)",
+                           log: .default, type: .debug)
+                }
                 isLoading = false
-                os_log("[ProviderConversationStore] Error loading filtered review requests: %{public}s",
-                       log: .default, type: .error, error.localizedDescription)
             }
         }
     }
@@ -244,14 +282,19 @@ class ProviderConversationStore: ObservableObject {
             }
         } catch {
             await MainActor.run {
-                // Only show error if we don't have it cached or in list
-                if getConversationDetails(for: id) == nil {
+                // Only show error if we don't have it cached or in list, and it's not a cancellation
+                if getConversationDetails(for: id) == nil && !isCancellationError(error) {
                     errorMessage = error.localizedDescription
+                } else if isCancellationError(error) {
+                    os_log("[ProviderConversationStore] Conversation details request cancelled (benign)",
+                           log: .default, type: .debug)
                 }
                 isLoading = false
             }
-            os_log("[ProviderConversationStore] Error loading conversation details for %{public}s: %{public}s",
-                   log: .default, type: .error, id.uuidString, error.localizedDescription)
+            if !isCancellationError(error) {
+                os_log("[ProviderConversationStore] Error loading conversation details for %{public}s: %{public}s",
+                       log: .default, type: .error, id.uuidString, error.localizedDescription)
+            }
         }
     }
     
@@ -318,22 +361,25 @@ class ProviderConversationStore: ObservableObject {
                 message: trimmedContent,
                 urgency: urgency.lowercased()
             )
-            
+
             // Refresh conversation details after sending message
             await loadConversationDetails(id: conversationId)
-            
+
             await MainActor.run {
                 isLoading = false
             }
         } catch {
             await MainActor.run {
-                errorMessage = error.localizedDescription
+                // Filter out cancellation errors
+                if !isCancellationError(error) {
+                    errorMessage = error.localizedDescription
+                }
                 isLoading = false
             }
             throw error
         }
     }
-    
+
     // MARK: - Update Status
     
     /// Update the status of a review request (public method)
@@ -359,19 +405,22 @@ class ProviderConversationStore: ObservableObject {
 
             // Refresh review requests to get updated status
             await loadReviewRequests()
-            
+
             await MainActor.run {
                 isLoading = false
             }
         } catch {
             await MainActor.run {
-                errorMessage = error.localizedDescription
+                // Filter out cancellation errors
+                if !isCancellationError(error) {
+                    errorMessage = error.localizedDescription
+                }
                 isLoading = false
             }
             throw error
         }
     }
-    
+
     /// Flag a conversation for review
     func flagConversation(id: String) async throws {
         try await updateStatus(id: id, status: "flagged")
@@ -449,19 +498,22 @@ class ProviderConversationStore: ObservableObject {
 
             // Refresh review requests
             await loadReviewRequests()
-            
+
             await MainActor.run {
                 isLoading = false
             }
         } catch {
             await MainActor.run {
-                errorMessage = error.localizedDescription
+                // Filter out cancellation errors
+                if !isCancellationError(error) {
+                    errorMessage = error.localizedDescription
+                }
                 isLoading = false
             }
             throw error
         }
     }
-    
+
     // MARK: - Flag Conversation
 
     /// Flag a conversation for review with optional reason
@@ -532,10 +584,16 @@ class ProviderConversationStore: ObservableObject {
             }
         } catch {
             await MainActor.run {
-                errorMessage = "Failed to flag conversation: \(error.localizedDescription)"
+                // Filter out cancellation errors
+                if !isCancellationError(error) {
+                    errorMessage = "Failed to flag conversation: \(error.localizedDescription)"
+                    os_log("[ProviderConversationStore] Error flagging conversation: %{public}s",
+                           log: .default, type: .error, error.localizedDescription)
+                } else {
+                    os_log("[ProviderConversationStore] Flag request cancelled (benign)",
+                           log: .default, type: .debug)
+                }
                 isLoading = false
-                os_log("[ProviderConversationStore] Error flagging conversation: %{public}s",
-                       log: .default, type: .error, error.localizedDescription)
             }
             throw error
         }
