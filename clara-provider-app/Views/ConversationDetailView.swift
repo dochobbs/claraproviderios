@@ -423,7 +423,15 @@ struct ConversationDetailView: View {
                             if let review = conversationReview,
                                let status = review.status,
                                status.lowercased() != "pending" {
-                                ReviewResultView(review: review, providerNotes: savedProviderNotes, onReopen: reopenResponse)
+                                ReviewResultView(
+                                    review: review,
+                                    providerNotes: savedProviderNotes,
+                                    providerTags: savedProviderTags.isEmpty ? nil : savedProviderTags,
+                                    onReopen: reopenResponse,
+                                    onNotesTap: {
+                                        showingNotesModal = true
+                                    }
+                                )
                                     .onAppear {
                                         os_log("[ConversationDetailView] 📦 ReviewResultView APPEARED with status=%{public}s", log: .default, type: .info, status)
                                     }
@@ -445,7 +453,15 @@ struct ConversationDetailView: View {
                        let review = conversationReview,
                        let status = review.status,
                        status.lowercased() != "pending" {
-                        ReviewResultView(review: review, providerNotes: savedProviderNotes, onReopen: reopenResponse)
+                        ReviewResultView(
+                            review: review,
+                            providerNotes: savedProviderNotes,
+                            providerTags: savedProviderTags.isEmpty ? nil : savedProviderTags,
+                            onReopen: reopenResponse,
+                            onNotesTap: {
+                                showingNotesModal = true
+                            }
+                        )
                             .padding(.horizontal)
                     }
                 }
@@ -1409,8 +1425,10 @@ struct ClaraMarkdownView: View {
 
 struct ReviewResultView: View {
     let review: ProviderReviewRequestDetail
-    let providerNotes: String?  // Local notes from UserDefaults
+    let providerNotes: String?  // Notes from Supabase conversation_feedback
+    let providerTags: [String]?  // Tags from Supabase conversation_feedback
     var onReopen: (() -> Void)? = nil
+    var onNotesTap: (() -> Void)? = nil  // Handler for tapping notes section
     @State private var responseExpanded: Bool = false  // Start collapsed
 
     var statusColor: Color {
@@ -1541,32 +1559,68 @@ struct ReviewResultView: View {
                     }
                 }
 
-                // Display provider notes (internal only) - loaded from UserDefaults
-                if let notes = providerNotes, !notes.isEmpty {
+                // Display provider notes (internal only) - loaded from Supabase
+                if (providerNotes != nil && !providerNotes!.isEmpty) || (providerTags != nil && !providerTags!.isEmpty) {
                     Divider()
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "note.text")
-                                .foregroundColor(.primaryCoral)
-                                .font(.caption)
 
-                            Text("Provider Notes (Internal)")
-                                .font(.system(.caption, design: .monospaced))
-                                .foregroundColor(.primaryCoral)
-                                .fontWeight(.semibold)
-
-                            Spacer()
-
-                            Text("Not shown to patient")
-                                .font(.system(.caption2, design: .monospaced))
-                                .foregroundColor(.secondary)
-                                .italic()
+                    // Make entire notes/tags section tappable to edit
+                    Button(action: {
+                        if let onNotesTap = onNotesTap {
+                            HapticFeedback.light()
+                            onNotesTap()
                         }
+                    }) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "note.text")
+                                    .foregroundColor(.primaryCoral)
+                                    .font(.caption)
 
-                        Text(notes)
-                            .font(.system(.subheadline, design: .monospaced))
-                            .foregroundColor(.primary)
+                                Text("Provider Notes (Internal)")
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundColor(.primaryCoral)
+                                    .fontWeight(.semibold)
+
+                                Spacer()
+
+                                Text("Not shown to patient")
+                                    .font(.system(.caption2, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                                    .italic()
+
+                                // Show edit icon if tappable
+                                if onNotesTap != nil {
+                                    Image(systemName: "pencil")
+                                        .font(.caption)
+                                        .foregroundColor(.primaryCoral)
+                                }
+                            }
+
+                            if let notes = providerNotes, !notes.isEmpty {
+                                Text(notes)
+                                    .font(.system(.subheadline, design: .monospaced))
+                                    .foregroundColor(.primary)
+                                    .multilineTextAlignment(.leading)
+                            }
+
+                            // Display tags as chips
+                            if let tags = providerTags, !tags.isEmpty {
+                                FlowLayout(spacing: 6) {
+                                    ForEach(tags, id: \.self) { tag in
+                                        Text(tag)
+                                            .font(.system(.caption, design: .rounded))
+                                            .fontWeight(.medium)
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                            .background(Color.primaryCoral.opacity(0.2))
+                                            .foregroundColor(.primaryCoral)
+                                            .cornerRadius(6)
+                                    }
+                                }
+                            }
+                        }
                     }
+                    .buttonStyle(PlainButtonStyle())  // Remove button highlighting
                 }
             }
             .padding(12)

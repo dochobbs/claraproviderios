@@ -53,6 +53,72 @@ struct MessageDetailView: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: 12) {
+                        // Display provider notes/tags inline (tappable to edit)
+                        if (savedProviderNotes != nil && !savedProviderNotes!.isEmpty) || (!savedProviderTags.isEmpty) {
+                            Button(action: {
+                                Task {
+                                    await loadNotesForModal()
+                                }
+                                showingNotesModal = true
+                                HapticFeedback.light()
+                            }) {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "note.text")
+                                            .foregroundColor(.primaryCoral)
+                                            .font(.caption)
+
+                                        Text("Provider Notes (Internal)")
+                                            .font(.system(.caption, design: .monospaced))
+                                            .foregroundColor(.primaryCoral)
+                                            .fontWeight(.semibold)
+
+                                        Spacer()
+
+                                        Text("Not shown to patient")
+                                            .font(.system(.caption2, design: .monospaced))
+                                            .foregroundColor(.secondary)
+                                            .italic()
+
+                                        Image(systemName: "pencil")
+                                            .font(.caption)
+                                            .foregroundColor(.primaryCoral)
+                                    }
+
+                                    if let notes = savedProviderNotes, !notes.isEmpty {
+                                        Text(notes)
+                                            .font(.system(.subheadline, design: .monospaced))
+                                            .foregroundColor(.primary)
+                                            .multilineTextAlignment(.leading)
+                                    }
+
+                                    // Display tags as chips
+                                    if !savedProviderTags.isEmpty {
+                                        FlowLayout(spacing: 6) {
+                                            ForEach(savedProviderTags, id: \.self) { tag in
+                                                Text(tag)
+                                                    .font(.system(.caption, design: .rounded))
+                                                    .fontWeight(.medium)
+                                                    .padding(.horizontal, 8)
+                                                    .padding(.vertical, 4)
+                                                    .background(Color.primaryCoral.opacity(0.2))
+                                                    .foregroundColor(.primaryCoral)
+                                                    .cornerRadius(6)
+                                            }
+                                        }
+                                    }
+                                }
+                                .padding(12)
+                                .background(Color.primaryCoral.opacity(0.1))
+                                .cornerRadius(16)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .stroke(Color.primaryCoral.opacity(0.3), lineWidth: 1)
+                                )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+
                         ForEach(messages) { message in
                             MessageBubble(message: message)
                         }
