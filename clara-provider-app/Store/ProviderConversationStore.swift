@@ -729,6 +729,25 @@ class ProviderConversationStore: ObservableObject {
         return nil
     }
 
+    /// Load provider tags for a conversation from Supabase conversation_feedback table
+    /// Returns array of tags, or empty array if no tags exist
+    func loadProviderTags(conversationId: String) -> [String] {
+        // Normalize to lowercase for consistent keys
+        let normalizedId = conversationId.lowercased()
+
+        // Check cache first
+        if let cached = feedbackCache[normalizedId] {
+            return cached.tags ?? []
+        }
+
+        // If not in cache, trigger async load in background
+        Task {
+            await loadProviderNotesAsync(conversationId: normalizedId)
+        }
+
+        return []
+    }
+
     /// Async version of loadProviderNotes - fetches from database and updates cache
     private func loadProviderNotesAsync(conversationId: String) async {
         let normalizedId = conversationId.lowercased()

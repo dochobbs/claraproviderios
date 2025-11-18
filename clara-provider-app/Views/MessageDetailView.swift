@@ -15,13 +15,20 @@ struct MessageDetailView: View {
     @State private var isFlagged = false
     @State private var showingNotesModal = false
     @State private var providerNotes = ""
+    @State private var providerTags: [String] = []
+    @State private var newTagText = ""
     @State private var notesRefreshTrigger = false  // Toggle this to force view refresh
 
-    // Load notes from UserDefaults
+    // Load notes and tags from database
     private var savedProviderNotes: String? {
         // Access notesRefreshTrigger to make this computed property reactive to state changes
         _ = notesRefreshTrigger
         return store.loadProviderNotes(conversationId: conversationId.uuidString)
+    }
+
+    private var savedProviderTags: [String] {
+        _ = notesRefreshTrigger
+        return store.loadProviderTags(conversationId: conversationId.uuidString)
     }
 
     var body: some View {
@@ -72,6 +79,7 @@ struct MessageDetailView: View {
                     // Provider notes button
                     Button(action: {
                         providerNotes = savedProviderNotes ?? ""
+                        providerTags = savedProviderTags
                         showingNotesModal = true
                     }) {
                         let hasNotes = savedProviderNotes != nil && !savedProviderNotes!.isEmpty
@@ -161,41 +169,95 @@ struct MessageDetailView: View {
         }
         .sheet(isPresented: $showingNotesModal) {
             NavigationStack {
-                VStack(spacing: 20) {
-                    Text("Provider Notes")
-                        .font(.rethinkSansBold(22, relativeTo: .title2))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding()
+                ScrollView {
+                    VStack(spacing: 20) {
+                        Text("Provider Notes")
+                            .font(.rethinkSansBold(22, relativeTo: .title2))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding()
 
-                    Text("Internal notes (not shown to patient)")
-                        .font(.rethinkSans(14, relativeTo: .caption))
-                        .foregroundColor(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        Text("Internal notes (not shown to patient)")
+                            .font(.rethinkSans(14, relativeTo: .caption))
+                            .foregroundColor(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal)
+                            .padding(.top, -15)
+
+                        // Notes text editor
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Notes")
+                                .font(.rethinkSansBold(15, relativeTo: .subheadline))
+                            TextEditor(text: $providerNotes)
+                                .font(.rethinkSans(15, relativeTo: .body))
+                                .frame(minHeight: 120, maxHeight: 200)
+                                .padding(8)
+                                .border(Color.adaptiveSecondaryBackground(for: colorScheme))
+                                .cornerRadius(8)
+                        }
                         .padding(.horizontal)
-                        .padding(.top, -15)
 
-                    VStack(alignment: .leading, spacing: 8) {
-                        TextEditor(text: $providerNotes)
-                            .font(.rethinkSans(15, relativeTo: .body))
-                            .frame(minHeight: 150, maxHeight: 300)
-                            .padding(8)
-                            .border(Color.adaptiveSecondaryBackground(for: colorScheme))
-                            .cornerRadius(8)
+                        // Tags section
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Tags")
+                                .font(.rethinkSansBold(15, relativeTo: .subheadline))
+
+                            // Display existing tags
+                            if !providerTags.isEmpty {
+                                FlowLayout(spacing: 8) {
+                                    ForEach(providerTags, id: \.self) { tag in
+                                        HStack(spacing: 4) {
+                                            Text(tag)
+                                                .font(.rethinkSans(14, relativeTo: .caption))
+                                            Button(action: {
+                                                providerTags.removeAll { $0 == tag }
+                                            }) {
+                                                Image(systemName: "xmark.circle.fill")
+                                                    .font(.system(size: 16))
+                                                    .foregroundColor(.secondary)
+                                            }
+                                        }
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 6)
+                                        .background(Color.primaryCoral.opacity(0.2))
+                                        .cornerRadius(16)
+                                    }
+                                }
+                            }
+
+                            // Add new tag
+                            HStack(spacing: 8) {
+                                TextField("Add tag...", text: $newTagText)
+                                    .font(.rethinkSans(15, relativeTo: .body))
+                                    .padding(8)
+                                    .background(Color.adaptiveSecondaryBackground(for: colorScheme))
+                                    .cornerRadius(8)
+                                    .onSubmit {
+                                        addTag()
+                                    }
+
+                                Button(action: addTag) {
+                                    Image(systemName: "plus.circle.fill")
+                                        .font(.system(size: 28))
+                                        .foregroundColor(.primaryCoral)
+                                }
+                                .disabled(newTagText.trimmingCharacters(in: .whitespaces).isEmpty)
+                            }
+                        }
+                        .padding(.horizontal)
+
+                        Spacer(minLength: 20)
+
+                        Button(action: saveProviderNotes) {
+                            Text("Save Notes & Tags")
+                                .font(.rethinkSansBold(17, relativeTo: .body))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .foregroundColor(.white)
+                        .background(Color.primaryCoral)
+                        .cornerRadius(12)
+                        .padding()
                     }
-                    .padding(.horizontal)
-
-                    Spacer()
-
-                    Button(action: saveProviderNotes) {
-                        Text("Save Notes")
-                            .font(.rethinkSansBold(17, relativeTo: .body))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .foregroundColor(.white)
-                    .background(Color.primaryCoral)
-                    .cornerRadius(12)
-                    .padding()
                 }
                 .background(Color.adaptiveBackground(for: colorScheme))
                 .navigationBarTitleDisplayMode(.inline)
@@ -204,18 +266,21 @@ struct MessageDetailView: View {
                         Button("Cancel") {
                             showingNotesModal = false
                             providerNotes = ""
+                            providerTags = []
+                            newTagText = ""
                         }
                     }
 
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button(action: {
                             providerNotes = ""
+                            providerTags = []
                             saveProviderNotes()
                         }) {
                             Text("Clear")
                                 .foregroundColor(.red)
                         }
-                        .disabled(savedProviderNotes == nil || savedProviderNotes!.isEmpty)
+                        .disabled((savedProviderNotes == nil || savedProviderNotes!.isEmpty) && savedProviderTags.isEmpty)
                     }
                 }
             }
@@ -370,13 +435,28 @@ struct MessageDetailView: View {
         }
     }
 
+    private func addTag() {
+        let trimmed = newTagText.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+
+        // Avoid duplicates
+        guard !providerTags.contains(trimmed) else {
+            newTagText = ""
+            return
+        }
+
+        providerTags.append(trimmed)
+        newTagText = ""
+    }
+
     private func saveProviderNotes() {
         let notesToSave = providerNotes.isEmpty ? nil : providerNotes
-        store.saveProviderNotes(conversationId: conversationId.uuidString, notes: notesToSave)
+        let tagsToSave = providerTags.isEmpty ? nil : providerTags
+        store.saveProviderNotes(conversationId: conversationId.uuidString, notes: notesToSave, tags: tagsToSave)
         showingNotesModal = false
         notesRefreshTrigger.toggle()  // Force view to refresh and update note icon color
         HapticFeedback.success()
-        os_log("[MessageDetailView] Provider notes saved successfully", log: .default, type: .info)
+        os_log("[MessageDetailView] Provider notes and tags saved successfully", log: .default, type: .info)
     }
 }
 
@@ -431,5 +511,50 @@ struct MessageBubble: View {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
         return formatter.string(from: date)
+    }
+}
+
+// MARK: - Flow Layout for Tags (wrapping horizontal layout)
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let result = FlowResult(in: proposal.replacingUnspecifiedDimensions().width, subviews: subviews, spacing: spacing)
+        return result.size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let result = FlowResult(in: bounds.width, subviews: subviews, spacing: spacing)
+        for (index, subview) in subviews.enumerated() {
+            subview.place(at: CGPoint(x: bounds.minX + result.frames[index].minX, y: bounds.minY + result.frames[index].minY), proposal: .unspecified)
+        }
+    }
+
+    struct FlowResult {
+        var frames: [CGRect] = []
+        var size: CGSize = .zero
+
+        init(in maxWidth: CGFloat, subviews: Subviews, spacing: CGFloat) {
+            var currentX: CGFloat = 0
+            var currentY: CGFloat = 0
+            var lineHeight: CGFloat = 0
+
+            for subview in subviews {
+                let size = subview.sizeThatFits(.unspecified)
+
+                if currentX + size.width > maxWidth && currentX > 0 {
+                    // Move to next line
+                    currentX = 0
+                    currentY += lineHeight + spacing
+                    lineHeight = 0
+                }
+
+                frames.append(CGRect(x: currentX, y: currentY, width: size.width, height: size.height))
+                lineHeight = max(lineHeight, size.height)
+                currentX += size.width + spacing
+            }
+
+            self.size = CGSize(width: maxWidth, height: currentY + lineHeight)
+        }
     }
 }
