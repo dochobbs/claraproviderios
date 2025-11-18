@@ -30,12 +30,14 @@ struct ConversationDetailView: View {
     private var savedProviderNotes: String? {
         // Access notesRefreshTrigger to make this computed property reactive to state changes
         _ = notesRefreshTrigger
-        return store.loadProviderNotes(conversationId: conversationId.uuidString)
+        // Use cache-only check to avoid triggering API calls on every render
+        return store.getProviderNotesFromCache(conversationId: conversationId.uuidString)
     }
 
     private var savedProviderTags: [String] {
         _ = notesRefreshTrigger
-        return store.loadProviderTags(conversationId: conversationId.uuidString)
+        // Use cache-only check to avoid triggering API calls on every render
+        return store.getProviderTagsFromCache(conversationId: conversationId.uuidString)
     }
 
     // MARK: - Message Pagination

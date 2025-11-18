@@ -758,6 +758,26 @@ class ProviderConversationStore: ObservableObject {
         return false
     }
 
+    /// Get provider notes from cache only (no fetch triggered)
+    /// Returns nil if not in cache or if notes are empty
+    func getProviderNotesFromCache(conversationId: String) -> String? {
+        let normalizedId = conversationId.lowercased()
+        if let cached = feedbackCache[normalizedId] {
+            return cached.feedback
+        }
+        return nil
+    }
+
+    /// Get provider tags from cache only (no fetch triggered)
+    /// Returns empty array if not in cache
+    func getProviderTagsFromCache(conversationId: String) -> [String] {
+        let normalizedId = conversationId.lowercased()
+        if let cached = feedbackCache[normalizedId] {
+            return cached.tags ?? []
+        }
+        return []
+    }
+
     /// Async version of loadProviderNotes - fetches from database and updates cache
     private func loadProviderNotesAsync(conversationId: String) async {
         let normalizedId = conversationId.lowercased()

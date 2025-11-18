@@ -19,16 +19,18 @@ struct MessageDetailView: View {
     @State private var newTagText = ""
     @State private var notesRefreshTrigger = false  // Toggle this to force view refresh
 
-    // Load notes and tags from database
+    // Load notes and tags from cache only (no API fetch)
     private var savedProviderNotes: String? {
         // Access notesRefreshTrigger to make this computed property reactive to state changes
         _ = notesRefreshTrigger
-        return store.loadProviderNotes(conversationId: conversationId.uuidString)
+        // Use cache-only check to avoid triggering API calls on every render
+        return store.getProviderNotesFromCache(conversationId: conversationId.uuidString)
     }
 
     private var savedProviderTags: [String] {
         _ = notesRefreshTrigger
-        return store.loadProviderTags(conversationId: conversationId.uuidString)
+        // Use cache-only check to avoid triggering API calls on every render
+        return store.getProviderTagsFromCache(conversationId: conversationId.uuidString)
     }
 
     var body: some View {
