@@ -893,8 +893,8 @@ struct ConversationDetailView: View {
         }
         content += "\n"
 
-        // Add provider notes (if any)
-        if let notes = store.loadProviderNotes(conversationId: conversationId.uuidString), !notes.isEmpty {
+        // Add provider notes (if any) - use cache-only to avoid triggering fetches
+        if let notes = store.getProviderNotesFromCache(conversationId: conversationId.uuidString), !notes.isEmpty {
             content += "═══════════════════════════════\n"
             content += "PROVIDER NOTES (INTERNAL)\n"
             content += "═══════════════════════════════\n\n"

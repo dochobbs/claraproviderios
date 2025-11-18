@@ -297,7 +297,7 @@ struct ConversationListView: View {
                                     MessageConversationRowView(
                                         conversation: conversation,
                                         isUnread: unreadConversationIds.contains(conversation.conversationId),
-                                        hasNotes: hasNotesDebug(for: conversation.conversationId)
+                                        hasNotes: hasNotes(for: conversation.conversationId)
                                     )
                                 }
                                 .listRowBackground(Color.adaptiveBackground(for: colorScheme))
@@ -483,19 +483,6 @@ struct ConversationListView: View {
         _ = notesRefreshTrigger
         // Use cache-only check to avoid triggering API calls on every row render
         return store.hasProviderNotesInCache(conversationId: conversationId)
-    }
-
-    func hasNotesDebug(for conversationId: String) -> Bool {
-        // Access the trigger to make this reactive
-        _ = notesRefreshTrigger
-        let notes = store.loadProviderNotes(conversationId: conversationId)
-        let hasNotes = notes != nil && !notes!.isEmpty
-        os_log("[ConversationListView] Rendering %{public}s, hasNotes: %d, notes: %{public}s",
-               log: .default, type: .info,
-               String(conversationId.prefix(8)),
-               hasNotes ? 1 : 0,
-               notes ?? "nil")
-        return hasNotes
     }
 
     func loadThreads() async {

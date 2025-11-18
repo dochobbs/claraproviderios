@@ -425,8 +425,8 @@ struct MessageDetailView: View {
         }
         content += "\n"
 
-        // Section 2: Provider Notes (if any)
-        if let notes = store.loadProviderNotes(conversationId: conversationId.uuidString), !notes.isEmpty {
+        // Section 2: Provider Notes (if any) - use cache-only to avoid triggering fetches
+        if let notes = store.getProviderNotesFromCache(conversationId: conversationId.uuidString), !notes.isEmpty {
             content += "═══════════════════════════════\n"
             content += "PROVIDER NOTES (INTERNAL)\n"
             content += "═══════════════════════════════\n\n"
