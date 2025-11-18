@@ -481,13 +481,8 @@ struct ConversationListView: View {
     func hasNotes(for conversationId: String) -> Bool {
         // Access the trigger to make this reactive
         _ = notesRefreshTrigger
-        let notes = store.loadProviderNotes(conversationId: conversationId)
-        let hasNotes = notes != nil && !notes!.isEmpty
-        if hasNotes {
-            os_log("[ConversationListView] Conversation %{public}s has notes",
-                   log: .default, type: .info, String(conversationId.prefix(8)))
-        }
-        return hasNotes
+        // Use cache-only check to avoid triggering API calls on every row render
+        return store.hasProviderNotesInCache(conversationId: conversationId)
     }
 
     func hasNotesDebug(for conversationId: String) -> Bool {

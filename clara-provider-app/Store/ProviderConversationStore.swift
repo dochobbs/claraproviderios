@@ -748,6 +748,16 @@ class ProviderConversationStore: ObservableObject {
         return []
     }
 
+    /// Check if provider notes exist in cache (cache-only, no fetch)
+    /// Use this for UI display to avoid triggering API calls on every row render
+    func hasProviderNotesInCache(conversationId: String) -> Bool {
+        let normalizedId = conversationId.lowercased()
+        if let cached = feedbackCache[normalizedId] {
+            return cached.feedback != nil && !cached.feedback!.isEmpty
+        }
+        return false
+    }
+
     /// Async version of loadProviderNotes - fetches from database and updates cache
     private func loadProviderNotesAsync(conversationId: String) async {
         let normalizedId = conversationId.lowercased()

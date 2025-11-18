@@ -230,8 +230,8 @@ struct AllMessagesView: View {
     private func hasNotes(for conversationId: String) -> Bool {
         // Access the trigger to make this reactive
         _ = notesRefreshTrigger
-        let notes = store.loadProviderNotes(conversationId: conversationId)
-        return notes != nil && !notes!.isEmpty
+        // Use cache-only check to avoid triggering API calls on every row render
+        return store.hasProviderNotesInCache(conversationId: conversationId)
     }
 
     private func loadConversations() async {
