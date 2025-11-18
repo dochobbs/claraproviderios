@@ -996,8 +996,7 @@ class ProviderSupabaseService: SupabaseServiceBase {
         // Prepare payload
         var payload: [String: Any] = [
             "conversation_id": conversationId,
-            "created_by": createdBy,
-            "updated_at": ISO8601DateFormatter().string(from: Date())
+            "created_by": createdBy
         ]
 
         // Add optional fields if provided
@@ -1007,6 +1006,8 @@ class ProviderSupabaseService: SupabaseServiceBase {
         if let tags = tags {
             payload["tags"] = tags
         }
+
+        // Note: updated_at is handled automatically by the database
 
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
 
