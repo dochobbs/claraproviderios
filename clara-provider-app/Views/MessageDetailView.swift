@@ -78,8 +78,10 @@ struct MessageDetailView: View {
 
                     // Provider notes button
                     Button(action: {
-                        providerNotes = savedProviderNotes ?? ""
-                        providerTags = savedProviderTags
+                        // Load notes asynchronously to ensure we have latest from database
+                        Task {
+                            await loadNotesForModal()
+                        }
                         showingNotesModal = true
                     }) {
                         let hasNotes = savedProviderNotes != nil && !savedProviderNotes!.isEmpty
@@ -431,6 +433,36 @@ struct MessageDetailView: View {
             await MainActor.run {
                 errorMessage = "Failed to unflag conversation: \(error.localizedDescription)"
                 os_log("[MessageDetailView] Error unflagging conversation: %{public}s", log: .default, type: .error, String(describing: error))
+            }
+        }
+    }
+
+    private func loadNotesForModal() async {
+        // Fetch notes and tags from database asynchronously
+        do {
+            if let feedback = try await ProviderSupabaseService.shared.fetchConversationFeedback(conversationId: conversationId.uuidString.lowercased()) {
+                await MainActor.run {
+                    providerNotes = feedback.feedback ?? ""
+                    providerTags = feedback.tags ?? []
+                    os_log("[MessageDetailView] Loaded notes and tags from database: notes=%d chars, tags=%d",
+                           log: .default, type: .info, providerNotes.count, providerTags.count)
+                }
+            } else {
+                // No existing feedback
+                await MainActor.run {
+                    providerNotes = ""
+                    providerTags = []
+                    os_log("[MessageDetailView] No existing notes/tags found",
+                           log: .default, type: .info)
+                }
+            }
+        } catch {
+            os_log("[MessageDetailView] Error loading notes/tags: %{public}s",
+                   log: .default, type: .error, String(describing: error))
+            // Keep existing values or empty
+            await MainActor.run {
+                providerNotes = savedProviderNotes ?? ""
+                providerTags = savedProviderTags
             }
         }
     }
