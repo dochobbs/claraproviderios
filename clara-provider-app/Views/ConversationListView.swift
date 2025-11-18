@@ -535,9 +535,10 @@ struct ConversationListView: View {
                 isLoadingThreads = false
             }
 
-            // Prefetch provider notes for all loaded conversations to warm the cache
-            let conversationIds = results.map { $0.conversationId }
-            await store.prefetchProviderNotes(conversationIds: conversationIds)
+            // NOTE: Prefetching disabled - causes excessive API calls
+            // Notes are loaded on-demand when modal is opened via loadNotesForModal()
+            // let conversationIds = results.map { $0.conversationId }
+            // await store.prefetchProviderNotes(conversationIds: conversationIds)
         } catch {
             await MainActor.run {
                 isLoadingThreads = false

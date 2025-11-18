@@ -1024,17 +1024,33 @@ class ProviderSupabaseService: SupabaseServiceBase {
             throw SupabaseError.requestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
         }
 
-        // Decode the returned feedback
-        let feedbackArray = try JSONDecoder().decode([ConversationFeedback].self, from: data)
-
-        guard let createdFeedback = feedbackArray.first else {
-            throw SupabaseError.invalidResponse
+        // Log the raw response for debugging
+        if let responseString = String(data: data, encoding: .utf8) {
+            os_log("[ProviderSupabaseService] Upsert response: %{public}s",
+                   log: .default, type: .debug, responseString)
         }
 
-        os_log("[ProviderSupabaseService] Upserted feedback successfully",
-               log: .default, type: .info)
+        // Decode the returned feedback
+        do {
+            let feedbackArray = try JSONDecoder().decode([ConversationFeedback].self, from: data)
 
-        return createdFeedback
+            guard let createdFeedback = feedbackArray.first else {
+                os_log("[ProviderSupabaseService] Upsert response was empty array",
+                       log: .default, type: .error)
+                throw SupabaseError.invalidResponse
+            }
+
+            os_log("[ProviderSupabaseService] Upserted feedback successfully: id=%{public}s",
+                   log: .default, type: .info, createdFeedback.id)
+
+            return createdFeedback
+        } catch {
+            os_log("[ProviderSupabaseService] Failed to decode upsert response: %{public}s",
+                   log: .default, type: .error, String(describing: error))
+            os_log("[ProviderSupabaseService] Raw data: %{public}s",
+                   log: .default, type: .error, String(data: data, encoding: .utf8) ?? "nil")
+            throw error
+        }
     }
 
     /// Delete conversation feedback
