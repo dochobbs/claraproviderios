@@ -642,46 +642,144 @@ class ProviderConversationStore: ObservableObject {
         }
     }
 
-    // MARK: - Provider Notes (Local Storage)
+    // MARK: - Provider Notes (Synced with Supabase)
 
-    private let providerNotesKey = "provider_notes_"
+    // Cache for conversation feedback to avoid repeated API calls
+    private var feedbackCache: [String: ConversationFeedback] = [:]
 
-    /// Save provider notes for a conversation to UserDefaults
-    /// These notes are internal only and not shown to patients
-    func saveProviderNotes(conversationId: String, notes: String?) {
+    /// Save provider notes for a conversation to Supabase conversation_feedback table
+    /// These notes are synced with the web dashboard and visible to the team
+    func saveProviderNotes(conversationId: String, notes: String?, tags: [String]? = nil) {
         // Normalize to lowercase for consistent keys
         let normalizedId = conversationId.lowercased()
-        let key = providerNotesKey + normalizedId
 
-        if let notes = notes, !notes.isEmpty {
-            UserDefaults.standard.set(notes, forKey: key)
-            os_log("[ProviderConversationStore] Saved provider notes for conversation %{public}s (normalized)",
-                   log: .default, type: .info, String(normalizedId.prefix(8)))
-        } else {
-            UserDefaults.standard.removeObject(forKey: key)
-            os_log("[ProviderConversationStore] Cleared provider notes for conversation %{public}s (normalized)",
-                   log: .default, type: .info, String(normalizedId.prefix(8)))
+        Task {
+            do {
+                // TODO: Get actual provider ID from authenticated user
+                // For now, using hardcoded provider name
+                let providerId = "Dr. Hobbs"
+
+                if let notes = notes, !notes.isEmpty {
+                    // Upsert to database
+                    let feedback = try await supabaseService.upsertConversationFeedback(
+                        conversationId: normalizedId,
+                        createdBy: providerId,
+                        feedback: notes,
+                        tags: tags
+                    )
+
+                    // Update cache
+                    await MainActor.run {
+                        feedbackCache[normalizedId] = feedback
+                        os_log("[ProviderConversationStore] Saved provider notes to database for conversation %{public}s",
+                               log: .default, type: .info, String(normalizedId.prefix(8)))
+                    }
+                } else {
+                    // Delete from database if notes are empty
+                    try await supabaseService.deleteConversationFeedback(conversationId: normalizedId)
+
+                    // Remove from cache
+                    await MainActor.run {
+                        feedbackCache.removeValue(forKey: normalizedId)
+                        os_log("[ProviderConversationStore] Deleted provider notes from database for conversation %{public}s",
+                               log: .default, type: .info, String(normalizedId.prefix(8)))
+                    }
+                }
+
+                // Notify views to refresh notes indicators
+                await MainActor.run {
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("ProviderNotesChanged"),
+                        object: nil,
+                        userInfo: ["conversationId": normalizedId]
+                    )
+                }
+            } catch {
+                os_log("[ProviderConversationStore] Error saving provider notes: %{public}s",
+                       log: .default, type: .error, String(describing: error))
+
+                await MainActor.run {
+                    // Show error to user if it's not a cancellation
+                    if !isCancellationError(error) {
+                        errorMessage = "Failed to save notes: \(error.localizedDescription)"
+                    }
+                }
+            }
         }
-
-        // Notify views to refresh notes indicators
-        NotificationCenter.default.post(
-            name: NSNotification.Name("ProviderNotesChanged"),
-            object: nil,
-            userInfo: ["conversationId": normalizedId]
-        )
     }
 
-    /// Load provider notes for a conversation from UserDefaults
+    /// Load provider notes for a conversation from Supabase conversation_feedback table
+    /// Returns the feedback text, or nil if no feedback exists
     func loadProviderNotes(conversationId: String) -> String? {
         // Normalize to lowercase for consistent keys
         let normalizedId = conversationId.lowercased()
-        let key = providerNotesKey + normalizedId
-        let notes = UserDefaults.standard.string(forKey: key)
-        if notes != nil {
-            os_log("[ProviderConversationStore] Loaded notes for %{public}s: %d characters",
-                   log: .default, type: .debug, String(normalizedId.prefix(8)), notes!.count)
+
+        // Check cache first
+        if let cached = feedbackCache[normalizedId] {
+            return cached.feedback
         }
-        return notes
+
+        // If not in cache, we need to fetch from database
+        // This is synchronous, so we'll need to handle this differently
+        // For now, return nil and trigger async load in background
+        Task {
+            await loadProviderNotesAsync(conversationId: normalizedId)
+        }
+
+        return nil
+    }
+
+    /// Async version of loadProviderNotes - fetches from database and updates cache
+    private func loadProviderNotesAsync(conversationId: String) async {
+        let normalizedId = conversationId.lowercased()
+
+        do {
+            if let feedback = try await supabaseService.fetchConversationFeedback(conversationId: normalizedId) {
+                await MainActor.run {
+                    feedbackCache[normalizedId] = feedback
+                    os_log("[ProviderConversationStore] Loaded notes from database for %{public}s: %d characters",
+                           log: .default, type: .debug, String(normalizedId.prefix(8)), feedback.feedback?.count ?? 0)
+
+                    // Notify views to refresh
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("ProviderNotesChanged"),
+                        object: nil,
+                        userInfo: ["conversationId": normalizedId]
+                    )
+                }
+            }
+        } catch {
+            os_log("[ProviderConversationStore] Error loading provider notes: %{public}s",
+                   log: .default, type: .error, String(describing: error))
+        }
+    }
+
+    /// Prefetch provider notes for multiple conversations to warm the cache
+    /// Call this when loading conversation lists to ensure notes are available
+    func prefetchProviderNotes(conversationIds: [String]) async {
+        for conversationId in conversationIds {
+            let normalizedId = conversationId.lowercased()
+
+            // Skip if already in cache
+            if feedbackCache[normalizedId] != nil {
+                continue
+            }
+
+            do {
+                if let feedback = try await supabaseService.fetchConversationFeedback(conversationId: normalizedId) {
+                    await MainActor.run {
+                        feedbackCache[normalizedId] = feedback
+                    }
+                }
+            } catch {
+                // Silently fail - notes are optional
+                os_log("[ProviderConversationStore] Could not prefetch notes for %{public}s: %{public}s",
+                       log: .default, type: .debug, String(normalizedId.prefix(8)), String(describing: error))
+            }
+        }
+
+        os_log("[ProviderConversationStore] Prefetched notes for %d conversations, cache size: %d",
+               log: .default, type: .info, conversationIds.count, feedbackCache.count)
     }
 
     /// Schedule a follow-up for a conversation

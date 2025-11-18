@@ -262,6 +262,10 @@ struct AllMessagesView: View {
                 isLoading = false
                 os_log("[AllMessagesView] Loaded %d conversations, %d unread", log: .default, type: .info, results.count, unreadConversationIds.count)
             }
+
+            // Prefetch provider notes for all loaded conversations to warm the cache
+            let conversationIds = results.map { $0.conversationId }
+            await store.prefetchProviderNotes(conversationIds: conversationIds)
         } catch {
             await MainActor.run {
                 errorMessage = "Failed to load conversations: \(error.localizedDescription)"

@@ -937,6 +937,132 @@ class ProviderSupabaseService: SupabaseServiceBase {
         }
     }
 
+    // MARK: - Conversation Feedback (Provider Notes & Tags)
+
+    /// Fetch feedback for a specific conversation
+    func fetchConversationFeedback(conversationId: String) async throws -> ConversationFeedback? {
+        os_log("[ProviderSupabaseService] Fetching feedback for conversation: %{public}s",
+               log: .default, type: .debug, String(conversationId.prefix(8)))
+
+        let urlString = "\(projectURL)/rest/v1/conversation_feedback?conversation_id=eq.\(conversationId)&limit=1"
+
+        guard let url = URL(string: urlString) else {
+            throw SupabaseError.invalidResponse
+        }
+
+        let request = createRequest(url: url, method: "GET")
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw SupabaseError.invalidResponse
+        }
+
+        guard (200...299).contains(httpResponse.statusCode) else {
+            let errorMessage = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw SupabaseError.requestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
+        }
+
+        // Decode array response
+        let feedbackArray = try JSONDecoder().decode([ConversationFeedback].self, from: data)
+
+        os_log("[ProviderSupabaseService] Found %d feedback records for conversation",
+               log: .default, type: .debug, feedbackArray.count)
+
+        return feedbackArray.first
+    }
+
+    /// Upsert (create or update) conversation feedback
+    /// Note: Uses Supabase upsert with on_conflict=conversation_id to update existing or insert new
+    func upsertConversationFeedback(
+        conversationId: String,
+        createdBy: String,
+        feedback: String?,
+        tags: [String]?
+    ) async throws -> ConversationFeedback {
+        os_log("[ProviderSupabaseService] Upserting feedback for conversation: %{public}s",
+               log: .default, type: .info, String(conversationId.prefix(8)))
+
+        let urlString = "\(projectURL)/rest/v1/conversation_feedback"
+
+        guard let url = URL(string: urlString) else {
+            throw SupabaseError.invalidResponse
+        }
+
+        var request = createRequest(url: url, method: "POST")
+        // Add Prefer header for upsert behavior
+        request.setValue("return=representation", forHTTPHeaderField: "Prefer")
+        request.setValue("resolution=merge-duplicates", forHTTPHeaderField: "Prefer")
+
+        // Prepare payload
+        var payload: [String: Any] = [
+            "conversation_id": conversationId,
+            "created_by": createdBy,
+            "updated_at": ISO8601DateFormatter().string(from: Date())
+        ]
+
+        // Add optional fields if provided
+        if let feedback = feedback {
+            payload["feedback"] = feedback
+        }
+        if let tags = tags {
+            payload["tags"] = tags
+        }
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw SupabaseError.invalidResponse
+        }
+
+        guard (200...299).contains(httpResponse.statusCode) else {
+            let errorMessage = String(data: data, encoding: .utf8) ?? "Unknown error"
+            os_log("[ProviderSupabaseService] Upsert failed: %{public}s",
+                   log: .default, type: .error, errorMessage)
+            throw SupabaseError.requestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
+        }
+
+        // Decode the returned feedback
+        let feedbackArray = try JSONDecoder().decode([ConversationFeedback].self, from: data)
+
+        guard let createdFeedback = feedbackArray.first else {
+            throw SupabaseError.invalidResponse
+        }
+
+        os_log("[ProviderSupabaseService] Upserted feedback successfully",
+               log: .default, type: .info)
+
+        return createdFeedback
+    }
+
+    /// Delete conversation feedback
+    func deleteConversationFeedback(conversationId: String) async throws {
+        os_log("[ProviderSupabaseService] Deleting feedback for conversation: %{public}s",
+               log: .default, type: .info, String(conversationId.prefix(8)))
+
+        let urlString = "\(projectURL)/rest/v1/conversation_feedback?conversation_id=eq.\(conversationId)"
+
+        guard let url = URL(string: urlString) else {
+            throw SupabaseError.invalidResponse
+        }
+
+        let request = createRequest(url: url, method: "DELETE")
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw SupabaseError.invalidResponse
+        }
+
+        guard (200...299).contains(httpResponse.statusCode) else {
+            let errorMessage = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw SupabaseError.requestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
+        }
+
+        os_log("[ProviderSupabaseService] Deleted feedback successfully",
+               log: .default, type: .info)
+    }
+
     // MARK: - Dashboard Statistics
 
     /// Fetch dashboard statistics
