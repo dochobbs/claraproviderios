@@ -94,8 +94,18 @@ struct ConversationDetailView: View {
                 // Actions menu, flag button, and follow-up indicator
                 HStack(spacing: 12) {
                     if let detail = conversationDetail {
-                        // iOS share button
-                        Button(action: { shareAllContent() }) {
+                        // Share menu with options
+                        Menu {
+                            Button(action: { shareAllContent() }) {
+                                Label("Full Output", systemImage: "doc.text.fill")
+                            }
+                            Button(action: { shareSummaryOnly() }) {
+                                Label("Summary Only", systemImage: "doc.plaintext")
+                            }
+                            Button(action: { shareConversationOnly() }) {
+                                Label("Conversation Only", systemImage: "bubble.left.and.bubble.right")
+                            }
+                        } label: {
                             Image(systemName: "square.and.arrow.up")
                                 .foregroundColor(.primaryCoral)
                         }
@@ -930,6 +940,64 @@ struct ConversationDetailView: View {
         // Create share item directly with content
         // Note: iOS may log "Error acquiring assertion" - this is a benign system warning
         // and does not prevent the share sheet from working correctly
+        shareItem = ShareItem(content: content)
+    }
+
+    private func shareSummaryOnly() {
+        guard let detail = conversationDetail else {
+            print("[Share] No conversation detail available")
+            return
+        }
+
+        var content = ""
+
+        // Summary section only
+        content += "═══════════════════════════════\n"
+        content += "CONVERSATION SUMMARY\n"
+        content += "═══════════════════════════════\n\n"
+        content += "Patient: \(detail.childName ?? "Unknown")\n"
+        if let age = detail.childAge {
+            content += "Age: \(age)\n"
+        }
+        content += "Status: \(detail.status?.capitalized ?? "Unknown")\n"
+        if let triage = detail.triageOutcome {
+            content += "Triage: \(triage)\n"
+        }
+        content += "Total Messages: \(allMessages.count)\n"
+        if let createdAt = detail.createdAt {
+            content += "Created: \(createdAt)\n"
+        }
+        content += "\n"
+
+        // Add clinical summary from Clara
+        if let summary = detail.conversationSummary, !summary.isEmpty {
+            content += "CLINICAL SUMMARY:\n"
+            content += summary
+            content += "\n\n"
+        }
+
+        // Create share item
+        shareItem = ShareItem(content: content)
+    }
+
+    private func shareConversationOnly() {
+        var content = ""
+
+        // Conversation only - no metadata or provider response
+        content += "═══════════════════════════════\n"
+        content += "CONVERSATION\n"
+        content += "═══════════════════════════════\n\n"
+
+        if allMessages.isEmpty {
+            content += "(No messages in conversation)\n\n"
+        } else {
+            for message in allMessages {
+                let sender = message.isFromUser ? "Parent" : "Clara"
+                content += "[\(sender)]: \(message.content)\n\n"
+            }
+        }
+
+        // Create share item
         shareItem = ShareItem(content: content)
     }
 

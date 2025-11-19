@@ -18,6 +18,7 @@ struct MessageDetailView: View {
     @State private var providerTags: [String] = []
     @State private var newTagText = ""
     @State private var notesRefreshTrigger = false  // Toggle this to force view refresh
+    @State private var notesChangedObserver: NSObjectProtocol?
 
     // Load notes and tags from cache only (no API fetch)
     private var savedProviderNotes: String? {
@@ -138,7 +139,15 @@ struct MessageDetailView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 HStack(spacing: 12) {
-                    Button(action: { shareAllContent() }) {
+                    // Share menu with options
+                    Menu {
+                        Button(action: { shareAllContent() }) {
+                            Label("Full Output", systemImage: "doc.text.fill")
+                        }
+                        Button(action: { shareConversationOnly() }) {
+                            Label("Conversation Only", systemImage: "bubble.left.and.bubble.right")
+                        }
+                    } label: {
                         Image(systemName: "square.and.arrow.up")
                             .foregroundColor(.primaryCoral)
                     }
@@ -365,6 +374,25 @@ struct MessageDetailView: View {
             os_log("[MessageDetailView] CALLING markMessageConversationAsRead for: %{public}s",
                    log: .default, type: .info, conversationId.uuidString)
             store.markMessageConversationAsRead(conversationId: conversationId.uuidString)
+
+            // Fetch notes from database (triggers async load and cache update)
+            _ = store.loadProviderNotes(conversationId: conversationId.uuidString)
+
+            // Listen for provider notes changes to refresh UI
+            if let existingObserver = notesChangedObserver {
+                NotificationCenter.default.removeObserver(existingObserver)
+            }
+
+            notesChangedObserver = NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("ProviderNotesChanged"),
+                object: nil,
+                queue: .main
+            ) { notification in
+                // Toggle trigger to force UI to re-render notes display
+                notesRefreshTrigger.toggle()
+                os_log("[MessageDetailView] Received notes changed notification - refreshing UI",
+                       log: .default, type: .info)
+            }
         }
         .alert("Error", isPresented: .init(
             get: { errorMessage != nil },
@@ -437,6 +465,31 @@ struct MessageDetailView: View {
         // Section 3: Full Conversation
         content += "═══════════════════════════════\n"
         content += "FULL CONVERSATION\n"
+        content += "═══════════════════════════════\n\n"
+
+        if messages.isEmpty {
+            content += "(No messages in conversation)\n\n"
+        } else {
+            let formatter = DateFormatter()
+            formatter.timeStyle = .short
+
+            for message in messages {
+                let sender = message.isFromUser ? "User" : "AI"
+                let timestamp = formatter.string(from: message.timestamp)
+                content += "[\(timestamp)] \(sender): \(message.content)\n\n"
+            }
+        }
+
+        // Create share item
+        shareItem = ShareItem(content: content)
+    }
+
+    private func shareConversationOnly() {
+        var content = ""
+
+        // Conversation only - no metadata
+        content += "═══════════════════════════════\n"
+        content += "CONVERSATION\n"
         content += "═══════════════════════════════\n\n"
 
         if messages.isEmpty {
