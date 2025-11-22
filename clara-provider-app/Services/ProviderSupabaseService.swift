@@ -234,13 +234,6 @@ class ProviderSupabaseService: SupabaseServiceBase {
     /// Flag a review request (sets is_flagged=true and adds flag metadata)
     func flagReview(id: String, reason: String?, flaggedBy: String) async throws {
         let idString = id.lowercased()
-        let urlString = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(idString)"
-
-        guard let url = URL(string: urlString) else {
-            throw SupabaseError.invalidResponse
-        }
-
-        var request = createPatchRequest(url: url)
 
         let formatter = ISO8601DateFormatter()
         var updatePayload: [String: Any] = [
@@ -258,21 +251,28 @@ class ProviderSupabaseService: SupabaseServiceBase {
         // Clear unflagged_at when flagging
         updatePayload["unflagged_at"] = NSNull()
 
-        request.httpBody = try JSONSerialization.data(withJSONObject: updatePayload)
+        // Update provider_review_requests table
+        let reviewRequestsURL = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(idString)"
+        guard let url1 = URL(string: reviewRequestsURL) else {
+            throw SupabaseError.invalidResponse
+        }
+        var request1 = createPatchRequest(url: url1)
+        request1.httpBody = try JSONSerialization.data(withJSONObject: updatePayload)
+        try await executeRequest(request1)
 
-        try await executeRequest(request)
+        // Also update conversations table for dashboard sync
+        let conversationsURL = "\(projectURL)/rest/v1/conversations?id=eq.\(idString)"
+        guard let url2 = URL(string: conversationsURL) else {
+            throw SupabaseError.invalidResponse
+        }
+        var request2 = createPatchRequest(url: url2)
+        request2.httpBody = try JSONSerialization.data(withJSONObject: updatePayload)
+        try await executeRequest(request2)
     }
 
     /// Unflag a review request (sets is_flagged=false and adds unflag metadata)
     func unflagReview(id: String) async throws {
         let idString = id.lowercased()
-        let urlString = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(idString)"
-
-        guard let url = URL(string: urlString) else {
-            throw SupabaseError.invalidResponse
-        }
-
-        var request = createPatchRequest(url: url)
 
         let formatter = ISO8601DateFormatter()
         let updatePayload: [String: Any] = [
@@ -282,9 +282,23 @@ class ProviderSupabaseService: SupabaseServiceBase {
             // Note: We keep flagged_at, flagged_by for audit trail
         ]
 
-        request.httpBody = try JSONSerialization.data(withJSONObject: updatePayload)
+        // Update provider_review_requests table
+        let reviewRequestsURL = "\(projectURL)/rest/v1/provider_review_requests?conversation_id=eq.\(idString)"
+        guard let url1 = URL(string: reviewRequestsURL) else {
+            throw SupabaseError.invalidResponse
+        }
+        var request1 = createPatchRequest(url: url1)
+        request1.httpBody = try JSONSerialization.data(withJSONObject: updatePayload)
+        try await executeRequest(request1)
 
-        try await executeRequest(request)
+        // Also update conversations table for dashboard sync
+        let conversationsURL = "\(projectURL)/rest/v1/conversations?id=eq.\(idString)"
+        guard let url2 = URL(string: conversationsURL) else {
+            throw SupabaseError.invalidResponse
+        }
+        var request2 = createPatchRequest(url: url2)
+        request2.httpBody = try JSONSerialization.data(withJSONObject: updatePayload)
+        try await executeRequest(request2)
     }
 
     /// Add provider response details to a review request by conversation_id
