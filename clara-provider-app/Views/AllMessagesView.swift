@@ -73,47 +73,51 @@ struct AllMessagesView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Filter buttons
-            HStack(spacing: 12) {
-                SubFilterButton(
-                    title: "Unread",
-                    count: unreadCount,
-                    isSelected: selectedFilter == .unread
-                ) {
-                    selectedFilter = .unread
-                    os_log("[AllMessagesView] Switched to Unread filter", log: .default, type: .info)
-                }
-                .frame(maxWidth: .infinity)
+            // Filter buttons - 2 rows of 2 buttons
+            VStack(spacing: 8) {
+                HStack(spacing: 8) {
+                    SubFilterButton(
+                        title: "Unread",
+                        count: unreadCount,
+                        isSelected: selectedFilter == .unread
+                    ) {
+                        selectedFilter = .unread
+                        os_log("[AllMessagesView] Switched to Unread filter", log: .default, type: .info)
+                    }
+                    .frame(maxWidth: .infinity)
 
-                SubFilterButton(
-                    title: "Notes",
-                    count: notesCount,
-                    isSelected: selectedFilter == .notes
-                ) {
-                    selectedFilter = .notes
-                    os_log("[AllMessagesView] Switched to Notes filter", log: .default, type: .info)
+                    SubFilterButton(
+                        title: "Notes",
+                        count: notesCount,
+                        isSelected: selectedFilter == .notes
+                    ) {
+                        selectedFilter = .notes
+                        os_log("[AllMessagesView] Switched to Notes filter", log: .default, type: .info)
+                    }
+                    .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity)
 
-                SubFilterButton(
-                    title: "Flags",
-                    count: flagsCount,
-                    isSelected: selectedFilter == .flags
-                ) {
-                    selectedFilter = .flags
-                    os_log("[AllMessagesView] Switched to Flags filter", log: .default, type: .info)
-                }
-                .frame(maxWidth: .infinity)
+                HStack(spacing: 8) {
+                    SubFilterButton(
+                        title: "Flags",
+                        count: flagsCount,
+                        isSelected: selectedFilter == .flags
+                    ) {
+                        selectedFilter = .flags
+                        os_log("[AllMessagesView] Switched to Flags filter", log: .default, type: .info)
+                    }
+                    .frame(maxWidth: .infinity)
 
-                SubFilterButton(
-                    title: "All",
-                    count: conversations.count,
-                    isSelected: selectedFilter == .all
-                ) {
-                    selectedFilter = .all
-                    os_log("[AllMessagesView] Switched to All filter", log: .default, type: .info)
+                    SubFilterButton(
+                        title: "All",
+                        count: conversations.count,
+                        isSelected: selectedFilter == .all
+                    ) {
+                        selectedFilter = .all
+                        os_log("[AllMessagesView] Switched to All filter", log: .default, type: .info)
+                    }
+                    .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)

@@ -898,52 +898,74 @@ class ProviderSupabaseService: SupabaseServiceBase {
         }
 
         // Enrich with flag information from conversations table
-        // Fetch flag status for all conversation IDs in a single batch query
+        // Batch the requests to avoid URL length limits (max ~50 UUIDs per request)
         if !summaries.isEmpty {
             let conversationIds = summaries.map { $0.conversationId }
+            var conversationData: [String: (isFlagged: Bool?, flagReason: String?, adminViewedAt: String?)] = [:]
 
-            // Build a query to fetch all conversations at once using 'in' operator
-            // Note: Supabase REST API 'in' operator expects comma-separated list in parentheses
-            let idsString = conversationIds.map { $0.lowercased() }.joined(separator: ",")
-            let conversationsUrlString = "\(projectURL)/rest/v1/conversations?id=in.(\(idsString))&select=id,is_flagged,flag_reason,admin_viewed_at"
+            // Process in batches of 50 to avoid URL length limits
+            let batchSize = 50
+            let batches = stride(from: 0, to: conversationIds.count, by: batchSize).map {
+                Array(conversationIds[$0..<min($0 + batchSize, conversationIds.count)])
+            }
 
-            if let url = URL(string: conversationsUrlString) {
+            os_log("[ProviderSupabaseService] Fetching conversation metadata in %d batches (%d conversations total)",
+                   log: .default, type: .info, batches.count, conversationIds.count)
+
+            for (batchIndex, batch) in batches.enumerated() {
+                let idsString = batch.map { $0.lowercased() }.joined(separator: ",")
+                let conversationsUrlString = "\(projectURL)/rest/v1/conversations?id=in.(\(idsString))&select=id,is_flagged,flag_reason,admin_viewed_at"
+
+                os_log("[ProviderSupabaseService] Batch %d/%d: Fetching %d conversations (URL length: %d)",
+                       log: .default, type: .info, batchIndex + 1, batches.count, batch.count, conversationsUrlString.count)
+
+                guard let url = URL(string: conversationsUrlString) else {
+                    os_log("[ProviderSupabaseService] Failed to create URL for batch %d", log: .default, type: .error, batchIndex + 1)
+                    continue
+                }
+
                 do {
                     let request = createRequest(url: url, method: "GET")
                     let (data, response) = try await URLSession.shared.data(for: request)
 
-                    if let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) {
-                        let jsonArray = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] ?? []
+                    if let httpResponse = response as? HTTPURLResponse {
+                        os_log("[ProviderSupabaseService] Batch %d response: HTTP %d", log: .default, type: .info, batchIndex + 1, httpResponse.statusCode)
 
-                        // Create a dictionary for quick lookup
-                        var conversationData: [String: (isFlagged: Bool?, flagReason: String?, adminViewedAt: String?)] = [:]
-                        for item in jsonArray {
-                            if let id = item["id"] as? String {
-                                let isFlagged = item["is_flagged"] as? Bool
-                                let flagReason = item["flag_reason"] as? String
-                                let adminViewedAt = item["admin_viewed_at"] as? String
-                                conversationData[id.lowercased()] = (isFlagged, flagReason, adminViewedAt)
+                        if (200...299).contains(httpResponse.statusCode) {
+                            let jsonArray = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] ?? []
+                            os_log("[ProviderSupabaseService] Batch %d returned %d conversation records",
+                                   log: .default, type: .info, batchIndex + 1, jsonArray.count)
+
+                            for item in jsonArray {
+                                if let id = item["id"] as? String {
+                                    let isFlagged = item["is_flagged"] as? Bool
+                                    let flagReason = item["flag_reason"] as? String
+                                    let adminViewedAt = item["admin_viewed_at"] as? String
+                                    conversationData[id.lowercased()] = (isFlagged, flagReason, adminViewedAt)
+                                }
                             }
                         }
-
-                        // Enrich summaries with conversation data (flags + read status)
-                        summaries = summaries.map { summary in
-                            var enriched = summary
-                            if let data = conversationData[summary.conversationId.lowercased()] {
-                                enriched.isFlagged = data.isFlagged
-                                enriched.flagReason = data.flagReason
-                                enriched.adminViewedAt = data.adminViewedAt
-                            }
-                            return enriched
-                        }
-
-                        os_log("[ProviderSupabaseService] Enriched %d conversations with data from conversations table", log: .default, type: .info, conversationData.count)
                     }
                 } catch {
-                    os_log("[ProviderSupabaseService] Failed to fetch flag data from conversations table: %{public}s", log: .default, type: .error, String(describing: error))
-                    // Continue without flag data - non-critical
+                    os_log("[ProviderSupabaseService] Failed to fetch batch %d: %{public}s",
+                           log: .default, type: .error, batchIndex + 1, String(describing: error))
+                    // Continue with next batch
                 }
             }
+
+            // Enrich summaries with conversation data (flags + read status)
+            summaries = summaries.map { summary in
+                var enriched = summary
+                if let data = conversationData[summary.conversationId.lowercased()] {
+                    enriched.isFlagged = data.isFlagged
+                    enriched.flagReason = data.flagReason
+                    enriched.adminViewedAt = data.adminViewedAt
+                }
+                return enriched
+            }
+
+            os_log("[ProviderSupabaseService] Enriched %d/%d conversations with data from conversations table",
+                   log: .default, type: .info, conversationData.count, summaries.count)
         }
 
         os_log("[ProviderSupabaseService] Found %d complete conversations (with both user and assistant messages) from %d total unique conversations", log: .default, type: .info, summaries.count, conversationsDict.count)
