@@ -74,7 +74,15 @@ struct AllMessagesView: View {
                 .frame(maxWidth: .infinity)
 
                 // Notes/Flags toggle button - tap to cycle through notes → flags → all
-                Button(action: {
+                let notesButtonTitle = selectedFilter == .notes ? "Notes" : (selectedFilter == .flags ? "Flags" : "Notes/Flags")
+                let notesButtonCount = selectedFilter == .notes ? notesCount : (selectedFilter == .flags ? flagsCount : (notesCount + flagsCount))
+                let notesIsSelected = selectedFilter == .notes || selectedFilter == .flags
+
+                SubFilterButton(
+                    title: notesButtonTitle,
+                    count: notesButtonCount,
+                    isSelected: notesIsSelected
+                ) {
                     HapticFeedback.light()
                     // Cycle through: notes → flags → all
                     switch selectedFilter {
@@ -88,29 +96,6 @@ struct AllMessagesView: View {
                         selectedFilter = .notes
                         os_log("[AllMessagesView] Switched to Notes filter", log: .default, type: .info)
                     }
-                }) {
-                    let buttonTitle = selectedFilter == .notes ? "Notes" : (selectedFilter == .flags ? "Flags" : "Notes/Flags")
-                    let buttonCount = selectedFilter == .notes ? notesCount : (selectedFilter == .flags ? flagsCount : (notesCount + flagsCount))
-                    let isSelected = selectedFilter == .notes || selectedFilter == .flags
-
-                    HStack(spacing: 4) {
-                        Text(buttonTitle)
-                            .font(isSelected ? .rethinkSansBold(13, relativeTo: .subheadline) : .rethinkSans(13, relativeTo: .subheadline))
-                        Text("(\(buttonCount))")
-                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                    }
-                    .foregroundColor(isSelected ? .white : Color.adaptiveLabel(for: colorScheme))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-                    .background(isSelected ? Color.primaryCoral : Color.adaptiveSecondaryBackground(for: colorScheme))
-                    .cornerRadius(8)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(
-                                isSelected ? Color.clear : Color.adaptiveSecondaryLabel(for: colorScheme).opacity(0.3),
-                                lineWidth: 1
-                            )
-                    )
                 }
                 .frame(maxWidth: .infinity)
 
