@@ -348,6 +348,13 @@ struct MessageConversationRow: View {
 
                 Spacer()
 
+                // Flag indicator
+                if conversation.isFlagged == true {
+                    Image(systemName: "flag.fill")
+                        .font(.system(size: 12))
+                        .foregroundColor(.flaggedTeal)
+                }
+
                 // Notes indicator
                 if hasNotes {
                     Image(systemName: "note.text")
