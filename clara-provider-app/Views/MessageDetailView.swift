@@ -510,11 +510,30 @@ struct MessageDetailView: View {
     }
 
     private func checkFlagStatus() {
-        // Check if this conversation is flagged in the store
-        if let detail = store.reviewRequests.first(where: { $0.conversationId == conversationId.uuidString }) {
-            isFlagged = detail.isFlagged ?? false
-            if let reason = detail.flagReason, !reason.isEmpty {
-                flagReason = reason
+        // For Threads view, check flag status from conversations table
+        // NOT from provider_review_requests (that's for Reviews view only)
+        Task {
+            do {
+                let urlString = "\(ProviderSupabaseService.shared.projectURL)/rest/v1/conversations?id=eq.\(conversationId.uuidString.lowercased())&select=is_flagged,flag_reason"
+                guard let url = URL(string: urlString) else { return }
+
+                let request = ProviderSupabaseService.shared.createRequest(url: url, method: "GET")
+                let (data, _) = try await URLSession.shared.data(for: request)
+
+                if let jsonArray = try JSONSerialization.jsonObject(with: data) as? [[String: Any]],
+                   let conversation = jsonArray.first {
+                    await MainActor.run {
+                        isFlagged = conversation["is_flagged"] as? Bool ?? false
+                        if let reason = conversation["flag_reason"] as? String, !reason.isEmpty {
+                            flagReason = reason
+                        }
+                        os_log("[MessageDetailView] Loaded flag status from conversations table: isFlagged=%{public}@",
+                               log: .default, type: .info, isFlagged ? "true" : "false")
+                    }
+                }
+            } catch {
+                os_log("[MessageDetailView] Error loading flag status: %{public}s",
+                       log: .default, type: .error, String(describing: error))
             }
         }
     }
@@ -525,12 +544,33 @@ struct MessageDetailView: View {
 
         Task {
             do {
-                try await store.flagConversation(id: conversationId, reason: flagReason)
+                // For Threads, write flag to conversations table (NOT provider_review_requests)
+                let urlString = "\(ProviderSupabaseService.shared.projectURL)/rest/v1/conversations?id=eq.\(conversationId.uuidString.lowercased())"
+                guard let url = URL(string: urlString) else {
+                    throw NSError(domain: "MessageDetailView", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
+                }
+
+                var request = ProviderSupabaseService.shared.createPatchRequest(url: url)
+
+                let formatter = ISO8601DateFormatter()
+                var payload: [String: Any] = [
+                    "is_flagged": true,
+                    "flagged_at": formatter.string(from: Date()),
+                    "flagged_by": "Dr. Hobbs"  // TODO: Get from authenticated user
+                ]
+
+                if !flagReason.isEmpty {
+                    payload["flag_reason"] = flagReason
+                }
+
+                request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+                let (_, _) = try await URLSession.shared.data(for: request)
+
                 await MainActor.run {
                     isFlagged = true
                     isFlagging = false
                     showingFlagModal = false
-                    os_log("[MessageDetailView] Successfully flagged conversation", log: .default, type: .info)
+                    os_log("[MessageDetailView] Successfully flagged conversation in conversations table", log: .default, type: .info)
                 }
             } catch {
                 await MainActor.run {
@@ -544,11 +584,28 @@ struct MessageDetailView: View {
 
     private func unflagConversation() async {
         do {
-            try await store.unflagConversation(id: conversationId)
+            // For Threads, write flag to conversations table (NOT provider_review_requests)
+            let urlString = "\(ProviderSupabaseService.shared.projectURL)/rest/v1/conversations?id=eq.\(conversationId.uuidString.lowercased())"
+            guard let url = URL(string: urlString) else {
+                throw NSError(domain: "MessageDetailView", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
+            }
+
+            var request = ProviderSupabaseService.shared.createPatchRequest(url: url)
+
+            let formatter = ISO8601DateFormatter()
+            let payload: [String: Any] = [
+                "is_flagged": false,
+                "unflagged_at": formatter.string(from: Date()),
+                "flag_reason": NSNull()
+            ]
+
+            request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+            let (_, _) = try await URLSession.shared.data(for: request)
+
             await MainActor.run {
                 isFlagged = false
                 flagReason = ""
-                os_log("[MessageDetailView] Successfully unflagged conversation", log: .default, type: .info)
+                os_log("[MessageDetailView] Successfully unflagged conversation in conversations table", log: .default, type: .info)
             }
         } catch {
             await MainActor.run {

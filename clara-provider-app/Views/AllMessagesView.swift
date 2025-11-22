@@ -166,6 +166,17 @@ struct AllMessagesView: View {
             os_log("[AllMessagesView] Setting up notification observer for mark-as-read",
                    log: .default, type: .info)
 
+            // Listen for notes changes to update indicators
+            NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("ProviderNotesChanged"),
+                object: nil,
+                queue: .main
+            ) { [self] _ in
+                os_log("[AllMessagesView] Received ProviderNotesChanged notification - refreshing UI",
+                       log: .default, type: .info)
+                notesRefreshTrigger.toggle()
+            }
+
             notificationObserver = NotificationCenter.default.addObserver(
                 forName: NSNotification.Name("MarkMessageConversationAsRead"),
                 object: nil,
@@ -270,6 +281,8 @@ struct AllMessagesView: View {
             // Trigger UI refresh after prefetch completes
             await MainActor.run {
                 notesRefreshTrigger.toggle()
+                os_log("[AllMessagesView] Triggered notes UI refresh after prefetch, cache size: %d",
+                       log: .default, type: .info, conversationIds.count)
             }
         } catch {
             await MainActor.run {
