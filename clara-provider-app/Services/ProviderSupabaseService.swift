@@ -989,9 +989,8 @@ class ProviderSupabaseService: SupabaseServiceBase {
         }
 
         var request = createRequest(url: url, method: "POST")
-        // Add Prefer header for upsert behavior
-        request.setValue("return=representation", forHTTPHeaderField: "Prefer")
-        request.setValue("resolution=merge-duplicates", forHTTPHeaderField: "Prefer")
+        // Add Prefer header for upsert behavior (both directives in one header)
+        request.setValue("return=representation,resolution=merge-duplicates", forHTTPHeaderField: "Prefer")
 
         // Prepare payload
         var payload: [String: Any] = [
