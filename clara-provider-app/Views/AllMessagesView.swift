@@ -11,6 +11,7 @@ struct AllMessagesView: View {
     @State private var selectedFilter: MessageFilter = .all
     @State private var notesRefreshTrigger = false  // Toggle this to force notes icons to refresh
     @State private var notesChangedObserver: NSObjectProtocol?
+    @State private var listRefreshObserver: NSObjectProtocol?
 
     enum MessageFilter {
         case unread, notes, flags, all
@@ -199,11 +200,32 @@ struct AllMessagesView: View {
                        log: .default, type: .info)
                 notesRefreshTrigger.toggle()
             }
+
+            // Listen for conversation list refresh requests (from MessageDetailView)
+            if let existingListObserver = listRefreshObserver {
+                NotificationCenter.default.removeObserver(existingListObserver)
+            }
+
+            listRefreshObserver = NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("ConversationListNeedsRefresh"),
+                object: nil,
+                queue: .main
+            ) { [self] _ in
+                os_log("[AllMessagesView] Received list refresh notification - reloading conversations",
+                       log: .default, type: .info)
+                Task {
+                    await loadConversations()
+                }
+            }
         }
         .onDisappear {
             if let observer = notesChangedObserver {
                 NotificationCenter.default.removeObserver(observer)
                 notesChangedObserver = nil
+            }
+            if let observer = listRefreshObserver {
+                NotificationCenter.default.removeObserver(observer)
+                listRefreshObserver = nil
             }
         }
         .alert("Error", isPresented: .init(
@@ -245,8 +267,20 @@ struct AllMessagesView: View {
                 isLoading = false
 
                 let unreadCount = results.filter { $0.adminViewedAt == nil }.count
-                os_log("[AllMessagesView] Loaded %d conversations, %d unread (from admin_viewed_at)",
-                       log: .default, type: .info, results.count, unreadCount)
+                let flaggedCount = results.filter { $0.isFlagged == true }.count
+                let withNotesCount = results.filter { hasNotes(for: $0.conversationId) }.count
+
+                os_log("[AllMessagesView] Loaded %d conversations: %d unread, %d flagged, %d with notes (from cache)",
+                       log: .default, type: .info, results.count, unreadCount, flaggedCount, withNotesCount)
+
+                // Log first conversation's data for debugging
+                if let first = results.first {
+                    os_log("[AllMessagesView] First conversation - ID: %{public}s, isFlagged: %{public}s, adminViewedAt: %{public}s",
+                           log: .default, type: .info,
+                           String(first.conversationId.prefix(8)),
+                           String(describing: first.isFlagged),
+                           first.adminViewedAt ?? "nil")
+                }
             }
 
             // Prefetch notes for all conversations to show indicators in list

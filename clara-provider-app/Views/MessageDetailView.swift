@@ -394,6 +394,18 @@ struct MessageDetailView: View {
                        log: .default, type: .info)
             }
         }
+        .onDisappear {
+            // Clean up notification observer
+            if let observer = notesChangedObserver {
+                NotificationCenter.default.removeObserver(observer)
+                notesChangedObserver = nil
+            }
+
+            // Notify AllMessagesView to refresh its list (picks up read status, flag changes, etc.)
+            NotificationCenter.default.post(name: NSNotification.Name("ConversationListNeedsRefresh"), object: nil)
+            os_log("[MessageDetailView] Posted ConversationListNeedsRefresh notification on disappear",
+                   log: .default, type: .info)
+        }
         .alert("Error", isPresented: .init(
             get: { errorMessage != nil },
             set: { if !$0 { errorMessage = nil } }
