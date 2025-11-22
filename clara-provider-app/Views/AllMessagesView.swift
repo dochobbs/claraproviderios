@@ -8,7 +8,7 @@ struct AllMessagesView: View {
     @State private var isLoading = false
     @State private var errorMessage: String? = nil
     @State private var searchText: String = ""
-    @State private var selectedFilter: MessageFilter = .unread
+    @State private var selectedFilter: MessageFilter = .all
     @State private var unreadConversationIds: Set<String> = []  // Track which conversations are unread
     @State private var unreadRefreshTrigger = false  // Toggle this to force UI refresh
     @State private var notesRefreshTrigger = false  // Toggle this to force notes icons to refresh
@@ -16,7 +16,7 @@ struct AllMessagesView: View {
     @State private var notesChangedObserver: NSObjectProtocol?
 
     enum MessageFilter {
-        case unread, flagged, all
+        case unread, notes, flags, all
     }
 
     var filteredConversations: [MessageConversationSummary] {
@@ -26,9 +26,10 @@ struct AllMessagesView: View {
         switch selectedFilter {
         case .unread:
             filtered = filtered.filter { unreadConversationIds.contains($0.conversationId) }
-        case .flagged:
-            // TODO: Add flagged logic once we have flagging in messages
-            break
+        case .notes:
+            filtered = filtered.filter { hasNotes(for: $0.conversationId) }
+        case .flags:
+            filtered = filtered.filter { $0.isFlagged == true }
         case .all:
             break
         }
@@ -50,9 +51,15 @@ struct AllMessagesView: View {
         return unreadConversationIds.count
     }
 
-    var flaggedCount: Int {
-        // TODO: Implement flagged count
-        0
+    var notesCount: Int {
+        // Access the trigger to make this reactive
+        _ = notesRefreshTrigger
+        return conversations.filter { hasNotes(for: $0.conversationId) }.count
+    }
+
+    var flagsCount: Int {
+        // Count conversations with is_flagged=true from conversations table
+        return conversations.filter { $0.isFlagged == true }.count
     }
 
     var body: some View {
@@ -68,12 +75,21 @@ struct AllMessagesView: View {
                 }
                 .frame(maxWidth: .infinity)
 
+                // Notes/Flags toggle button - tap to cycle through notes → flags → all
                 SubFilterButton(
-                    title: "Flagged",
-                    count: flaggedCount,
-                    isSelected: selectedFilter == .flagged
+                    title: selectedFilter == .notes ? "Notes" : (selectedFilter == .flags ? "Flags" : "Notes"),
+                    count: selectedFilter == .notes ? notesCount : (selectedFilter == .flags ? flagsCount : notesCount),
+                    isSelected: selectedFilter == .notes || selectedFilter == .flags
                 ) {
-                    selectedFilter = .flagged
+                    // Cycle through: all → notes → flags → all
+                    switch selectedFilter {
+                    case .notes:
+                        selectedFilter = .flags
+                    case .flags:
+                        selectedFilter = .all
+                    default:
+                        selectedFilter = .notes
+                    }
                 }
                 .frame(maxWidth: .infinity)
 
