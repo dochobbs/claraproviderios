@@ -370,10 +370,10 @@ struct MessageDetailView: View {
                 checkFlagStatus()
             }
 
-            // Mark this conversation as read for AllMessagesView tracking
-            os_log("[MessageDetailView] CALLING markMessageConversationAsRead for: %{public}s",
-                   log: .default, type: .info, conversationId.uuidString)
-            store.markMessageConversationAsRead(conversationId: conversationId.uuidString)
+            // Mark this conversation as read in conversations table (admin_viewed_at)
+            Task {
+                await markConversationAsRead()
+            }
 
             // Fetch notes from database (triggers async load and cache update)
             _ = store.loadProviderNotes(conversationId: conversationId.uuidString)
@@ -507,6 +507,30 @@ struct MessageDetailView: View {
 
         // Create share item
         shareItem = ShareItem(content: content)
+    }
+
+    private func markConversationAsRead() async {
+        do {
+            // Write admin_viewed_at to conversations table
+            let urlString = "\(ProviderSupabaseService.shared.projectURL)/rest/v1/conversations?id=eq.\(conversationId.uuidString.lowercased())"
+            guard let url = URL(string: urlString) else { return }
+
+            var request = ProviderSupabaseService.shared.createPatchRequest(url: url)
+
+            let formatter = ISO8601DateFormatter()
+            let payload: [String: Any] = [
+                "admin_viewed_at": formatter.string(from: Date())
+            ]
+
+            request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+            let (_, _) = try await URLSession.shared.data(for: request)
+
+            os_log("[MessageDetailView] Marked conversation as read (admin_viewed_at) in conversations table",
+                   log: .default, type: .info)
+        } catch {
+            os_log("[MessageDetailView] Error marking conversation as read: %{public}s",
+                   log: .default, type: .error, String(describing: error))
+        }
     }
 
     private func checkFlagStatus() {

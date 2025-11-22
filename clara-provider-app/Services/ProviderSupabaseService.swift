@@ -905,7 +905,7 @@ class ProviderSupabaseService: SupabaseServiceBase {
             // Build a query to fetch all conversations at once using 'in' operator
             // Note: Supabase REST API 'in' operator expects comma-separated list in parentheses
             let idsString = conversationIds.map { $0.lowercased() }.joined(separator: ",")
-            let conversationsUrlString = "\(projectURL)/rest/v1/conversations?id=in.(\(idsString))&select=id,is_flagged,flag_reason"
+            let conversationsUrlString = "\(projectURL)/rest/v1/conversations?id=in.(\(idsString))&select=id,is_flagged,flag_reason,admin_viewed_at"
 
             if let url = URL(string: conversationsUrlString) {
                 do {
@@ -916,26 +916,28 @@ class ProviderSupabaseService: SupabaseServiceBase {
                         let jsonArray = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] ?? []
 
                         // Create a dictionary for quick lookup
-                        var flagDict: [String: (isFlagged: Bool?, flagReason: String?)] = [:]
+                        var conversationData: [String: (isFlagged: Bool?, flagReason: String?, adminViewedAt: String?)] = [:]
                         for item in jsonArray {
                             if let id = item["id"] as? String {
                                 let isFlagged = item["is_flagged"] as? Bool
                                 let flagReason = item["flag_reason"] as? String
-                                flagDict[id.lowercased()] = (isFlagged, flagReason)
+                                let adminViewedAt = item["admin_viewed_at"] as? String
+                                conversationData[id.lowercased()] = (isFlagged, flagReason, adminViewedAt)
                             }
                         }
 
-                        // Enrich summaries with flag data
+                        // Enrich summaries with conversation data (flags + read status)
                         summaries = summaries.map { summary in
                             var enriched = summary
-                            if let flagData = flagDict[summary.conversationId.lowercased()] {
-                                enriched.isFlagged = flagData.isFlagged
-                                enriched.flagReason = flagData.flagReason
+                            if let data = conversationData[summary.conversationId.lowercased()] {
+                                enriched.isFlagged = data.isFlagged
+                                enriched.flagReason = data.flagReason
+                                enriched.adminViewedAt = data.adminViewedAt
                             }
                             return enriched
                         }
 
-                        os_log("[ProviderSupabaseService] Enriched %d conversations with flag data from conversations table", log: .default, type: .info, flagDict.count)
+                        os_log("[ProviderSupabaseService] Enriched %d conversations with data from conversations table", log: .default, type: .info, conversationData.count)
                     }
                 } catch {
                     os_log("[ProviderSupabaseService] Failed to fetch flag data from conversations table: %{public}s", log: .default, type: .error, String(describing: error))
@@ -1249,8 +1251,9 @@ struct MessageConversationSummary: Identifiable, Hashable {
     let latestIsFromUser: Bool
     var isFlagged: Bool?
     var flagReason: String?
+    var adminViewedAt: String?  // Track read/unread from conversations table
 
-    init(conversationId: String, userId: String?, latestTimestamp: String?, latestMessagePreview: String?, latestIsFromUser: Bool, isFlagged: Bool? = nil, flagReason: String? = nil) {
+    init(conversationId: String, userId: String?, latestTimestamp: String?, latestMessagePreview: String?, latestIsFromUser: Bool, isFlagged: Bool? = nil, flagReason: String? = nil, adminViewedAt: String? = nil) {
         self.id = conversationId
         self.conversationId = conversationId
         self.userId = userId
@@ -1259,6 +1262,7 @@ struct MessageConversationSummary: Identifiable, Hashable {
         self.latestIsFromUser = latestIsFromUser
         self.isFlagged = isFlagged
         self.flagReason = flagReason
+        self.adminViewedAt = adminViewedAt
     }
 }
 
