@@ -75,17 +75,20 @@ struct AllMessagesView: View {
                 // Notes/Flags toggle button - tap to cycle through notes → flags → all
                 SubFilterButton(
                     title: selectedFilter == .notes ? "Notes" : (selectedFilter == .flags ? "Flags" : "Notes"),
-                    count: selectedFilter == .notes ? notesCount : (selectedFilter == .flags ? flagsCount : notesCount),
+                    count: selectedFilter == .notes ? notesCount : (selectedFilter == .flags ? flagsCount : (notesCount + flagsCount)),
                     isSelected: selectedFilter == .notes || selectedFilter == .flags
                 ) {
-                    // Cycle through: all → notes → flags → all
+                    // Cycle through: notes → flags → all
                     switch selectedFilter {
                     case .notes:
                         selectedFilter = .flags
+                        os_log("[AllMessagesView] Switched to Flags filter", log: .default, type: .info)
                     case .flags:
                         selectedFilter = .all
-                    default:
+                        os_log("[AllMessagesView] Switched to All filter", log: .default, type: .info)
+                    case .all, .unread:
                         selectedFilter = .notes
+                        os_log("[AllMessagesView] Switched to Notes filter", log: .default, type: .info)
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -157,10 +160,9 @@ struct AllMessagesView: View {
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $searchText, prompt: "Search conversations...")
         .onAppear {
-            if conversations.isEmpty {
-                Task {
-                    await loadConversations()
-                }
+            // Always reload to pick up changes (notes, flags, read status)
+            Task {
+                await loadConversations()
             }
 
             // Listen for provider notes changes to update indicators
