@@ -971,7 +971,59 @@ class ProviderSupabaseService: SupabaseServiceBase {
         os_log("[ProviderSupabaseService] Found %d complete conversations (with both user and assistant messages) from %d total unique conversations", log: .default, type: .info, summaries.count, conversationsDict.count)
         return summaries
     }
-    
+
+    /// Fast metadata-only fetch for existing conversations
+    /// Returns dictionary of conversation_id -> (isFlagged, flagReason, adminViewedAt)
+    /// Only queries conversations table - NO message table scan
+    func fetchConversationMetadata(conversationIds: [String]) async throws -> [String: (isFlagged: Bool?, flagReason: String?, adminViewedAt: String?)] {
+        var conversationData: [String: (isFlagged: Bool?, flagReason: String?, adminViewedAt: String?)] = [:]
+
+        // Process in batches of 50 to avoid URL length limits
+        let batchSize = 50
+        let batches = stride(from: 0, to: conversationIds.count, by: batchSize).map {
+            Array(conversationIds[$0..<min($0 + batchSize, conversationIds.count)])
+        }
+
+        os_log("[ProviderSupabaseService] Fetching metadata in %d batches (%d conversations total)",
+               log: .default, type: .info, batches.count, conversationIds.count)
+
+        for (batchIndex, batch) in batches.enumerated() {
+            let idsString = batch.map { $0.lowercased() }.joined(separator: ",")
+            let conversationsUrlString = "\(projectURL)/rest/v1/conversations?id=in.(\(idsString))&select=id,is_flagged,flag_reason,admin_viewed_at"
+
+            guard let url = URL(string: conversationsUrlString) else {
+                os_log("[ProviderSupabaseService] Failed to create URL for metadata batch %d", log: .default, type: .error, batchIndex + 1)
+                continue
+            }
+
+            do {
+                let request = createRequest(url: url, method: "GET")
+                let (data, response) = try await URLSession.shared.data(for: request)
+
+                if let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) {
+                    let jsonArray = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] ?? []
+
+                    for item in jsonArray {
+                        if let id = item["id"] as? String {
+                            let isFlagged = item["is_flagged"] as? Bool
+                            let flagReason = item["flag_reason"] as? String
+                            let adminViewedAt = item["admin_viewed_at"] as? String
+                            conversationData[id.lowercased()] = (isFlagged, flagReason, adminViewedAt)
+                        }
+                    }
+                }
+            } catch {
+                os_log("[ProviderSupabaseService] Failed to fetch metadata batch %d: %{public}s",
+                       log: .default, type: .error, batchIndex + 1, String(describing: error))
+                // Continue with next batch
+            }
+        }
+
+        os_log("[ProviderSupabaseService] Fetched metadata for %d/%d conversations",
+               log: .default, type: .info, conversationData.count, conversationIds.count)
+        return conversationData
+    }
+
     // MARK: - Mark Messages as Read
 
     /// Mark all messages as read for a specific conversation

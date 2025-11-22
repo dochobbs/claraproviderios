@@ -12,6 +12,7 @@ struct AllMessagesView: View {
     @State private var notesRefreshTrigger = false  // Toggle this to force notes icons to refresh
     @State private var notesChangedObserver: NSObjectProtocol?
     @State private var listRefreshObserver: NSObjectProtocol?
+    @State private var lastFullFetch: Date?  // Track when we last did a full message fetch
 
     enum MessageFilter {
         case unread, notes, flags, all
@@ -71,115 +72,132 @@ struct AllMessagesView: View {
         return count
     }
 
+    private var filterButtons: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                SubFilterButton(
+                    title: "Unread",
+                    count: unreadCount,
+                    isSelected: selectedFilter == .unread
+                ) {
+                    selectedFilter = .unread
+                    os_log("[AllMessagesView] Switched to Unread filter", log: .default, type: .info)
+                }
+                .frame(maxWidth: .infinity)
+
+                SubFilterButton(
+                    title: "Notes",
+                    count: notesCount,
+                    isSelected: selectedFilter == .notes
+                ) {
+                    selectedFilter = .notes
+                    os_log("[AllMessagesView] Switched to Notes filter", log: .default, type: .info)
+                }
+                .frame(maxWidth: .infinity)
+            }
+
+            HStack(spacing: 8) {
+                SubFilterButton(
+                    title: "Flags",
+                    count: flagsCount,
+                    isSelected: selectedFilter == .flags
+                ) {
+                    selectedFilter = .flags
+                    os_log("[AllMessagesView] Switched to Flags filter", log: .default, type: .info)
+                }
+                .frame(maxWidth: .infinity)
+
+                SubFilterButton(
+                    title: "All",
+                    count: conversations.count,
+                    isSelected: selectedFilter == .all
+                ) {
+                    selectedFilter = .all
+                    os_log("[AllMessagesView] Switched to All filter", log: .default, type: .info)
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(Color.adaptiveBackground(for: colorScheme))
+    }
+
+    @ViewBuilder
+    private var contentView: some View {
+        if isLoading && conversations.isEmpty {
+            ProgressView("Loading conversations...")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.adaptiveBackground(for: colorScheme))
+        } else if conversations.isEmpty {
+            EmptyStateView(
+                title: "No Messages",
+                message: "No conversations found in the messages table."
+            )
+            .background(Color.adaptiveBackground(for: colorScheme))
+        } else {
+            conversationsList
+        }
+    }
+
+    private var conversationsList: some View {
+        List {
+            ForEach(filteredConversations, id: \.id) { conversation in
+                if let validUUID = UUID(uuidString: conversation.conversationId) {
+                    NavigationLink(destination: MessageDetailView(conversationId: validUUID).environmentObject(store)) {
+                        MessageConversationRow(
+                            conversation: conversation,
+                            isUnread: conversation.adminViewedAt == nil,
+                            hasNotes: hasNotes(for: conversation.conversationId)
+                        )
+                    }
+                    .listRowBackground(Color.adaptiveBackground(for: colorScheme))
+                } else {
+                    // Invalid conversation ID
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.red)
+                        VStack(alignment: .leading) {
+                            Text("Invalid Conversation")
+                                .font(.rethinkSansBold(16, relativeTo: .body))
+                            Text("Conversation ID format is invalid: \(conversation.conversationId)")
+                                .font(.rethinkSans(13, relativeTo: .footnote))
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                    }
+                    .listRowBackground(Color.red.opacity(0.1))
+                }
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .background(Color.adaptiveBackground(for: colorScheme))
+        .refreshable {
+            os_log("[AllMessagesView] User pull-to-refresh - full fetch", log: .default, type: .info)
+            await loadConversations(fullFetch: true)
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            // Filter buttons - 2 rows of 2 buttons
-            VStack(spacing: 8) {
-                HStack(spacing: 8) {
-                    SubFilterButton(
-                        title: "Unread",
-                        count: unreadCount,
-                        isSelected: selectedFilter == .unread
-                    ) {
-                        selectedFilter = .unread
-                        os_log("[AllMessagesView] Switched to Unread filter", log: .default, type: .info)
-                    }
-                    .frame(maxWidth: .infinity)
-
-                    SubFilterButton(
-                        title: "Notes",
-                        count: notesCount,
-                        isSelected: selectedFilter == .notes
-                    ) {
-                        selectedFilter = .notes
-                        os_log("[AllMessagesView] Switched to Notes filter", log: .default, type: .info)
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-
-                HStack(spacing: 8) {
-                    SubFilterButton(
-                        title: "Flags",
-                        count: flagsCount,
-                        isSelected: selectedFilter == .flags
-                    ) {
-                        selectedFilter = .flags
-                        os_log("[AllMessagesView] Switched to Flags filter", log: .default, type: .info)
-                    }
-                    .frame(maxWidth: .infinity)
-
-                    SubFilterButton(
-                        title: "All",
-                        count: conversations.count,
-                        isSelected: selectedFilter == .all
-                    ) {
-                        selectedFilter = .all
-                        os_log("[AllMessagesView] Switched to All filter", log: .default, type: .info)
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(Color.adaptiveBackground(for: colorScheme))
-
+            filterButtons
             Divider()
-
-            if isLoading && conversations.isEmpty {
-                ProgressView("Loading conversations...")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.adaptiveBackground(for: colorScheme))
-            } else if conversations.isEmpty {
-                EmptyStateView(
-                    title: "No Messages",
-                    message: "No conversations found in the messages table."
-                )
-                .background(Color.adaptiveBackground(for: colorScheme))
-            } else {
-                List {
-                    ForEach(filteredConversations, id: \.id) { conversation in
-                        if let validUUID = UUID(uuidString: conversation.conversationId) {
-                            NavigationLink(destination: MessageDetailView(conversationId: validUUID).environmentObject(store)) {
-                                MessageConversationRow(
-                                    conversation: conversation,
-                                    isUnread: conversation.adminViewedAt == nil,
-                                    hasNotes: hasNotes(for: conversation.conversationId)
-                                )
-                            }
-                            .listRowBackground(Color.adaptiveBackground(for: colorScheme))
-                        } else {
-                            // Invalid conversation ID
-                            HStack {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundColor(.red)
-                                VStack(alignment: .leading) {
-                                    Text("Invalid Conversation")
-                                        .font(.rethinkSansBold(16, relativeTo: .body))
-                                    Text("Conversation ID format is invalid: \(conversation.conversationId)")
-                                        .font(.rethinkSans(13, relativeTo: .footnote))
-                                        .foregroundColor(.secondary)
-                                }
-                                Spacer()
-                            }
-                            .listRowBackground(Color.red.opacity(0.1))
-                        }
-                    }
-                }
-                .scrollContentBackground(.hidden)
-                .background(Color.adaptiveBackground(for: colorScheme))
-                .refreshable {
-                    await loadConversations()
-                }
-            }
+            contentView
         }
         .background(Color.adaptiveBackground(for: colorScheme))
         .navigationTitle("All Messages")
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $searchText, prompt: "Search conversations...")
         .onAppear {
-            // Always reload to pick up changes (notes, flags, read status)
+            // Smart loading: Full fetch on first load, metadata-only refresh on subsequent visits
             Task {
-                await loadConversations()
+                if conversations.isEmpty {
+                    os_log("[AllMessagesView] First load - doing full fetch", log: .default, type: .info)
+                    await loadConversations(fullFetch: true)
+                } else {
+                    os_log("[AllMessagesView] Already loaded - refreshing metadata only", log: .default, type: .info)
+                    await refreshMetadata()
+                }
             }
 
             // Listen for provider notes changes to update indicators
@@ -208,10 +226,10 @@ struct AllMessagesView: View {
                 object: nil,
                 queue: .main
             ) { [self] _ in
-                os_log("[AllMessagesView] Received list refresh notification - reloading conversations",
+                os_log("[AllMessagesView] Received list refresh notification - metadata refresh only",
                        log: .default, type: .info)
                 Task {
-                    await loadConversations()
+                    await refreshMetadata()
                 }
             }
         }
@@ -235,7 +253,7 @@ struct AllMessagesView: View {
             Button("Retry") {
                 errorMessage = nil
                 Task {
-                    await loadConversations()
+                    await loadConversations(fullFetch: true)
                 }
             }
         } message: {
@@ -252,15 +270,16 @@ struct AllMessagesView: View {
         return store.hasProviderNotesInCache(conversationId: conversationId)
     }
 
-    private func loadConversations() async {
+    private func loadConversations(fullFetch: Bool) async {
         await MainActor.run { isLoading = true }
 
         do {
-            os_log("[AllMessagesView] Fetching conversations from messages table", log: .default, type: .info)
+            os_log("[AllMessagesView] Full fetch: Fetching ALL conversations from messages table", log: .default, type: .info)
             let results = try await ProviderSupabaseService.shared.fetchAllConversationsFromMessages()
 
             await MainActor.run {
                 conversations = results
+                lastFullFetch = Date()
                 isLoading = false
 
                 // Log counts BEFORE prefetch
@@ -308,6 +327,54 @@ struct AllMessagesView: View {
                 isLoading = false
                 os_log("[AllMessagesView] Error loading conversations: %{public}s", log: .default, type: .error, String(describing: error))
             }
+        }
+    }
+
+    /// Fast metadata-only refresh for existing conversations
+    /// Only fetches flags, read status, and notes - NO full message table scan
+    private func refreshMetadata() async {
+        guard !conversations.isEmpty else {
+            os_log("[AllMessagesView] No conversations to refresh metadata for", log: .default, type: .info)
+            return
+        }
+
+        do {
+            let conversationIds = conversations.map { $0.conversationId }
+            os_log("[AllMessagesView] Metadata refresh: Fetching flags/read status for %d conversations", log: .default, type: .info, conversationIds.count)
+
+            // Fetch updated metadata from conversations table (batched)
+            let updatedMetadata = try await ProviderSupabaseService.shared.fetchConversationMetadata(conversationIds: conversationIds)
+
+            await MainActor.run {
+                // Update existing conversations with fresh metadata
+                conversations = conversations.map { conversation in
+                    var updated = conversation
+                    if let metadata = updatedMetadata[conversation.conversationId.lowercased()] {
+                        updated.isFlagged = metadata.isFlagged
+                        updated.flagReason = metadata.flagReason
+                        updated.adminViewedAt = metadata.adminViewedAt
+                    }
+                    return updated
+                }
+
+                let unreadCount = conversations.filter { $0.adminViewedAt == nil }.count
+                let flaggedCount = conversations.filter { $0.isFlagged == true }.count
+                os_log("[AllMessagesView] Metadata refreshed: %d unread, %d flagged", log: .default, type: .info, unreadCount, flaggedCount)
+
+                // Trigger UI refresh
+                dataRefreshTrigger += 1
+            }
+
+            // Also refresh notes cache
+            os_log("[AllMessagesView] Refreshing notes cache for %d conversations", log: .default, type: .info, conversationIds.count)
+            await store.prefetchProviderNotes(conversationIds: conversationIds)
+
+            await MainActor.run {
+                notesRefreshTrigger.toggle()
+                os_log("[AllMessagesView] Metadata refresh complete", log: .default, type: .info)
+            }
+        } catch {
+            os_log("[AllMessagesView] Error refreshing metadata: %{public}s", log: .default, type: .error, String(describing: error))
         }
     }
 
