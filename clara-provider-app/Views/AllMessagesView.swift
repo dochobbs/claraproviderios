@@ -17,6 +17,8 @@ struct AllMessagesView: View {
         case unread, notes, flags, all
     }
 
+    @State private var dataRefreshTrigger = 0  // Increment to force complete UI refresh
+
     var filteredConversations: [MessageConversationSummary] {
         var filtered = conversations
 
@@ -45,19 +47,28 @@ struct AllMessagesView: View {
     }
 
     var unreadCount: Int {
-        // Count conversations where admin_viewed_at is null (from conversations table)
-        return conversations.filter { $0.adminViewedAt == nil }.count
+        // Access triggers to make this reactive
+        _ = dataRefreshTrigger
+        let count = conversations.filter { $0.adminViewedAt == nil }.count
+        os_log("[AllMessagesView] Computing unreadCount: %d", log: .default, type: .debug, count)
+        return count
     }
 
     var notesCount: Int {
-        // Access the trigger to make this reactive
+        // Access triggers to make this reactive
         _ = notesRefreshTrigger
-        return conversations.filter { hasNotes(for: $0.conversationId) }.count
+        _ = dataRefreshTrigger
+        let count = conversations.filter { hasNotes(for: $0.conversationId) }.count
+        os_log("[AllMessagesView] Computing notesCount: %d", log: .default, type: .debug, count)
+        return count
     }
 
     var flagsCount: Int {
-        // Count conversations with is_flagged=true from conversations table
-        return conversations.filter { $0.isFlagged == true }.count
+        // Access triggers to make this reactive
+        _ = dataRefreshTrigger
+        let count = conversations.filter { $0.isFlagged == true }.count
+        os_log("[AllMessagesView] Computing flagsCount: %d", log: .default, type: .debug, count)
+        return count
     }
 
     var body: some View {
@@ -70,32 +81,27 @@ struct AllMessagesView: View {
                     isSelected: selectedFilter == .unread
                 ) {
                     selectedFilter = .unread
+                    os_log("[AllMessagesView] Switched to Unread filter", log: .default, type: .info)
                 }
                 .frame(maxWidth: .infinity)
 
-                // Notes/Flags toggle button - tap to cycle through notes → flags → all
-                let notesButtonTitle = selectedFilter == .notes ? "Notes" : (selectedFilter == .flags ? "Flags" : "Notes/Flags")
-                let notesButtonCount = selectedFilter == .notes ? notesCount : (selectedFilter == .flags ? flagsCount : (notesCount + flagsCount))
-                let notesIsSelected = selectedFilter == .notes || selectedFilter == .flags
+                SubFilterButton(
+                    title: "Notes",
+                    count: notesCount,
+                    isSelected: selectedFilter == .notes
+                ) {
+                    selectedFilter = .notes
+                    os_log("[AllMessagesView] Switched to Notes filter", log: .default, type: .info)
+                }
+                .frame(maxWidth: .infinity)
 
                 SubFilterButton(
-                    title: notesButtonTitle,
-                    count: notesButtonCount,
-                    isSelected: notesIsSelected
+                    title: "Flags",
+                    count: flagsCount,
+                    isSelected: selectedFilter == .flags
                 ) {
-                    HapticFeedback.light()
-                    // Cycle through: notes → flags → all
-                    switch selectedFilter {
-                    case .notes:
-                        selectedFilter = .flags
-                        os_log("[AllMessagesView] Switched to Flags filter", log: .default, type: .info)
-                    case .flags:
-                        selectedFilter = .all
-                        os_log("[AllMessagesView] Switched to All filter", log: .default, type: .info)
-                    case .all, .unread:
-                        selectedFilter = .notes
-                        os_log("[AllMessagesView] Switched to Notes filter", log: .default, type: .info)
-                    }
+                    selectedFilter = .flags
+                    os_log("[AllMessagesView] Switched to Flags filter", log: .default, type: .info)
                 }
                 .frame(maxWidth: .infinity)
 
@@ -105,6 +111,7 @@ struct AllMessagesView: View {
                     isSelected: selectedFilter == .all
                 ) {
                     selectedFilter = .all
+                    os_log("[AllMessagesView] Switched to All filter", log: .default, type: .info)
                 }
                 .frame(maxWidth: .infinity)
             }
@@ -184,6 +191,7 @@ struct AllMessagesView: View {
                 os_log("[AllMessagesView] Received provider notes changed notification - refreshing UI",
                        log: .default, type: .info)
                 notesRefreshTrigger.toggle()
+                dataRefreshTrigger += 1
             }
 
             // Listen for conversation list refresh requests (from MessageDetailView)
@@ -251,32 +259,44 @@ struct AllMessagesView: View {
                 conversations = results
                 isLoading = false
 
-                let unreadCount = results.filter { $0.adminViewedAt == nil }.count
-                let flaggedCount = results.filter { $0.isFlagged == true }.count
-                let withNotesCount = results.filter { hasNotes(for: $0.conversationId) }.count
+                // Log counts BEFORE prefetch
+                let unreadCountBefore = results.filter { $0.adminViewedAt == nil }.count
+                let flaggedCountBefore = results.filter { $0.isFlagged == true }.count
+                let withNotesCountBefore = results.filter { hasNotes(for: $0.conversationId) }.count
 
-                os_log("[AllMessagesView] Loaded %d conversations: %d unread, %d flagged, %d with notes (from cache)",
-                       log: .default, type: .info, results.count, unreadCount, flaggedCount, withNotesCount)
+                os_log("[AllMessagesView] BEFORE prefetch - %d conversations: %d unread, %d flagged, %d with notes",
+                       log: .default, type: .info, results.count, unreadCountBefore, flaggedCountBefore, withNotesCountBefore)
 
-                // Log first conversation's data for debugging
-                if let first = results.first {
-                    os_log("[AllMessagesView] First conversation - ID: %{public}s, isFlagged: %{public}s, adminViewedAt: %{public}s",
+                // Log sample conversations for debugging
+                let flaggedSamples = results.filter { $0.isFlagged == true }.prefix(3)
+                for sample in flaggedSamples {
+                    os_log("[AllMessagesView] Flagged conversation: %{public}s, flagReason: %{public}s",
                            log: .default, type: .info,
-                           String(first.conversationId.prefix(8)),
-                           String(describing: first.isFlagged),
-                           first.adminViewedAt ?? "nil")
+                           String(sample.conversationId.prefix(8)),
+                           sample.flagReason ?? "none")
                 }
             }
 
             // Prefetch notes for all conversations to show indicators in list
             let conversationIds = results.map { $0.conversationId }
+            os_log("[AllMessagesView] Starting prefetch for %d conversation IDs", log: .default, type: .info, conversationIds.count)
             await store.prefetchProviderNotes(conversationIds: conversationIds)
 
-            // Trigger UI refresh after prefetch completes
+            // Trigger complete UI refresh after prefetch completes
             await MainActor.run {
+                // Log counts AFTER prefetch
+                let unreadCountAfter = conversations.filter { $0.adminViewedAt == nil }.count
+                let flaggedCountAfter = conversations.filter { $0.isFlagged == true }.count
+                let withNotesCountAfter = conversations.filter { hasNotes(for: $0.conversationId) }.count
+
+                os_log("[AllMessagesView] AFTER prefetch - %d conversations: %d unread, %d flagged, %d with notes",
+                       log: .default, type: .info, conversations.count, unreadCountAfter, flaggedCountAfter, withNotesCountAfter)
+
+                // Force UI refresh by incrementing both triggers
                 notesRefreshTrigger.toggle()
-                os_log("[AllMessagesView] Triggered notes UI refresh after prefetch, cache size: %d",
-                       log: .default, type: .info, conversationIds.count)
+                dataRefreshTrigger += 1
+                os_log("[AllMessagesView] Triggered complete UI refresh (dataRefreshTrigger=%d)",
+                       log: .default, type: .info, dataRefreshTrigger)
             }
         } catch {
             await MainActor.run {
