@@ -987,6 +987,25 @@ class ProviderSupabaseService: SupabaseServiceBase {
         os_log("[ProviderSupabaseService] Fetching metadata in %d batches (%d conversations total)",
                log: .default, type: .info, batches.count, conversationIds.count)
 
+        // First, test query to see if conversations table has any data at all
+        let testUrlString = "\(projectURL)/rest/v1/conversations?select=id,is_flagged,flag_reason,admin_viewed_at&limit=5"
+        if let testUrl = URL(string: testUrlString) {
+            do {
+                let testRequest = createRequest(url: testUrl, method: "GET")
+                let (testData, _) = try await URLSession.shared.data(for: testRequest)
+                let testJson = try JSONSerialization.jsonObject(with: testData) as? [[String: Any]] ?? []
+                os_log("[ProviderSupabaseService] Test query: conversations table has %d records (showing first 5)", log: .default, type: .info, testJson.count)
+                if let firstRecord = testJson.first {
+                    os_log("[ProviderSupabaseService] Sample conversation ID from table: %{public}s", log: .default, type: .info, String(describing: firstRecord["id"]))
+                }
+                if conversationIds.count > 0 {
+                    os_log("[ProviderSupabaseService] Sample conversation ID we're looking for: %{public}s", log: .default, type: .info, conversationIds[0])
+                }
+            } catch {
+                os_log("[ProviderSupabaseService] Test query failed: %{public}s", log: .default, type: .error, String(describing: error))
+            }
+        }
+
         for (batchIndex, batch) in batches.enumerated() {
             let idsString = batch.map { $0.lowercased() }.joined(separator: ",")
             let conversationsUrlString = "\(projectURL)/rest/v1/conversations?id=in.(\(idsString))&select=id,is_flagged,flag_reason,admin_viewed_at"
